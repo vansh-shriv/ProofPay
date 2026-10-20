@@ -1,5 +1,7 @@
 // `npm run doctor` - checks your setup end to end and tells you exactly what to fix.
 import { existsSync } from 'node:fs';
+import { z } from 'zod';
+import { GeminiClient } from '../server/src/ai/gemini-client';
 import { parseConfig } from '../server/src/config';
 import { PayPalProvider } from '../server/src/payments/paypal';
 
@@ -34,14 +36,11 @@ if (cfg.paymentsMode === 'paypal') {
 
 if (cfg.llmProvider === 'gemini') {
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${cfg.geminiModel}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.geminiApiKey },
-      body: JSON.stringify({ contents: [{ parts: [{ text: 'Reply with the single word: pong' }] }] }),
-    });
-    const j: any = await r.json();
-    if (!r.ok) bad(`Gemini: ${j.error?.message ?? r.statusText}`);
-    else ok(`Gemini ${cfg.geminiModel} replied: "${j.candidates?.[0]?.content?.parts?.[0]?.text?.trim()}"`);
+    const t0 = Date.now();
+    const r = await new GeminiClient({ apiKey: cfg.geminiApiKey, model: cfg.geminiModel }).json(
+      'Reply with JSON only.', 'Return {"word":"pong"}', z.object({ word: z.string() }), 0,
+    );
+    ok(`Gemini answered "${r.word}" in ${((Date.now() - t0) / 1000).toFixed(1)}s (model chain: ${cfg.geminiModel})`);
   } catch (e) { bad(`Gemini: ${(e as Error).message}`); }
 } else skip('Gemini check (LLM_PROVIDER=mock)');
 

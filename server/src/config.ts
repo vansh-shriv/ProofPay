@@ -37,7 +37,7 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     paymentsMode,
     llmProvider,
     geminiApiKey: get('GEMINI_API_KEY'),
-    geminiModel: get('GEMINI_MODEL', 'gemini-2.5-flash'),
+    geminiModel: get('GEMINI_MODEL', 'gemini-3.5-flash,gemini-3.8-flash,gemini-3.1-flash-lite'),
     port: Number(get('PORT', '3000')),
     appBaseUrl: get('APP_BASE_URL', 'http://localhost:3000').replace(/\/$/, ''),
     dbPath: get('DB_PATH', './data/proofpay.db'),

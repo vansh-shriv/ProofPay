@@ -32,6 +32,10 @@ export class MockPaymentProvider implements PaymentProvider {
     o.approved = true;
   }
 
+  returnUrlFor(orderId: string) {
+    return this.mustOrder(orderId).returnUrl;
+  }
+
   async confirmHold(orderId: string) {
     const o = this.mustOrder(orderId);
     if (!o.approved) throw new PaymentError('ORDER_NOT_APPROVED: buyer has not approved the order', 422);
