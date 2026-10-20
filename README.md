@@ -18,15 +18,35 @@ Sandbox only.
 ## Quick start (no keys needed)
 ```bash
 npm install
-cp .env.example .env     # defaults to offline mock mode
-npm test                 # unit tests
-npm run doctor           # checks your setup
-npm run dev              # http://localhost:3000/api/health
+cp .env.example .env     # defaults to offline simulators: no PayPal or AI keys required
+npm run demo             # builds the UI and starts http://localhost:3000
 ```
-Requires Node >= 22.13.
+Requires Node >= 22.13. In the default mode a built-in PayPal simulator and a deterministic mock AI stand in for the
+real services, so judges can click through the whole product immediately. Add real keys for the real thing (below).
+
+Try it: pick an example, **Create contract**, **Hold with PayPal**, then **Hire rushed AI worker** twice
+(it fails once, reads the verifier's feedback, fixes it, and gets paid). Open **Ledger** (AG Grid) to see every payment and decision.
 
 ## Real PayPal sandbox + Gemini
-See [docs/SETUP-paypal-gemini.md](docs/SETUP-paypal-gemini.md).
+See [docs/SETUP-paypal-gemini.md](docs/SETUP-paypal-gemini.md), then set `PAYMENTS_MODE=paypal` and `LLM_PROVIDER=gemini` in `.env`.
+
+## Scripts
+| Command | What it does |
+|---|---|
+| `npm run demo` | build UI + start server |
+| `npm run dev` / `npm run dev:web` | API with reload / Vite dev server (proxies to the API) |
+| `npm test` | 72 unit + integration tests |
+| `npm run e2e` | 8 real-browser tests (Playwright + Chrome), also regenerates `docs/screenshots/` |
+| `npm run doctor` | checks your `.env`, PayPal and Gemini connectivity |
+| `npm run smoke` | sends a $1 sandbox payout |
+| `npm run live-ai` | exercises the real Gemini prompts |
+| `npm run e2e:live` | full real flow with a real PayPal approval click |
+
+## Screenshots
+| | |
+|---|---|
+| ![Home](docs/screenshots/01-home.png) | ![Paid](docs/screenshots/05-paid.png) |
+| ![Dispute](docs/screenshots/06-dispute-settled.png) | ![Ledger](docs/screenshots/10-ledger-audit.png) |
 
 ## Docs
 - [00 Hackathon brief](docs/00-hackathon-brief.md) · [01 Plan](docs/01-plan.md) · [02 Architecture](docs/02-architecture.md)

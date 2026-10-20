@@ -23,7 +23,8 @@ describe('HTTP API: the whole product through the network layer', () => {
     const page = await app.inject({ method: 'GET', url: `/mock-paypal/approve?token=${job.orderId}` });
     expect(page.statusCode).toBe(200);
     expect(page.body).toContain('simulator');
-    const approved = await post(`/mock-paypal/approve?token=${job.orderId}`);
+    // the simulator page submits a real HTML form (urlencoded), not JSON
+    const approved = await app.inject({ method: 'POST', url: `/mock-paypal/approve?token=${job.orderId}`, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: '' });
     expect(approved.statusCode).toBe(303);
     const back = await app.inject({ method: 'GET', url: approved.headers.location as string });
     expect(back.statusCode).toBe(302);

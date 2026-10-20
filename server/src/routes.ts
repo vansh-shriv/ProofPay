@@ -121,6 +121,8 @@ export function registerRoutes(app: FastifyInstance, d: RouteDeps) {
   // ---- offline simulator of the PayPal approval popup (only when PAYMENTS_MODE=mock) ----
   if (d.payments instanceof MockPaymentProvider) {
     const mock = d.payments;
+    // The simulator page submits a plain HTML <form>; the order token travels in the query string.
+    app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, _body, done) => done(null, {}));
     app.get('/mock-paypal/approve', async (req, reply) => {
       const token = String((req.query as any).token ?? '');
       let returnUrl: string;

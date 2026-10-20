@@ -1,4 +1,7 @@
 import { pathToFileURL } from 'node:url';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import { createAI } from './ai';
 import { loadConfig, type Config } from './config';
@@ -19,6 +22,13 @@ export function buildApp(cfg: Config = loadConfig(), overrides: Partial<Pick<Rou
 
   app.get('/api/health', async () => ({ ok: true, app: 'proofpay', payments: payments.name, llm: ai.name }));
   registerRoutes(app, { jobs, store, payments, ...overrides });
+  // Serve the built web UI (npm run build) from the same origin as the API.
+  const webDist = fileURLToPath(new URL('../../web/dist', import.meta.url));
+  if (existsSync(webDist)) {
+    app.register(fastifyStatic, { root: webDist });
+  } else {
+    app.get('/', async (_req, reply) => reply.type('text/html').send('<h1>ProofPay API</h1><p>Web UI not built. Run <code>npm run build</code> (or <code>npm run dev:web</code> for the dev server).</p>'));
+  }
   app.addHook('onClose', async () => store.close());
 
   return { app, cfg, payments, jobs, store, ai };
