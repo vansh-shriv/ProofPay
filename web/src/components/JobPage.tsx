@@ -31,25 +31,22 @@ export function JobPage({ id, error }: { id: string; error?: string }) {
     }
   }, [toast]);
 
-  if (missing) return <main className="page"><div className="card empty">Job not found. <a href="#/">Back to jobs</a></div></main>;
-  if (!view) return <main className="page"><div className="card empty">Loading…</div></main>;
+  if (missing) return <div className="card empty">Job not found. <a href="#/" style={{ textDecoration: 'underline' }}>Back to overview</a></div>;
+  if (!view) return <div className="card empty">Loading…</div>;
 
   const { job, events } = view;
   return (
-    <main className="page">
-      <div className="stack" style={{ gap: 10 }}>
-        <a href="#/" className="small">← All jobs</a>
-        <div className="row between">
-          <div style={{ minWidth: 0 }}>
-            <h1>{job.contract.title}</h1>
-            <div className="faint mono">#{job.id.slice(0, 8)}</div>
-          </div>
-          <div className="row"><span style={{ fontSize: 22, fontWeight: 750 }}>{usd(job.amount.value, job.amount.currency)}</span><StatusBadge status={job.status} /></div>
+    <>
+      <div className="jobhead">
+        <div style={{ minWidth: 0 }}>
+          <div className="eyebrow">Contract · #{job.id.slice(0, 8)}</div>
+          <h2>{job.contract.title}</h2>
         </div>
+        <div className="row"><span className="bigamt">{usd(job.amount.value, job.amount.currency)}</span><StatusBadge status={job.status} /></div>
       </div>
-      <div className="card"><Stepper job={job} /></div>
+      <Stepper job={job} />
 
-      <div className="grid-2">
+      <div className="cols">
         <div className="stack">
           <ActionCard view={view} busy={busy} run={run} />
           <ContractCard job={job} />
@@ -60,7 +57,7 @@ export function JobPage({ id, error }: { id: string; error?: string }) {
           <Timeline events={events} />
         </div>
       </div>
-    </main>
+    </>
   );
 }
 
@@ -75,12 +72,12 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
   const left = job.contract.maxAttempts - job.attempts;
   const lastFail = job.verdicts.at(-1) && !job.verdicts.at(-1)!.passed ? job.verdicts.at(-1)! : undefined;
 
-  if (busy) return <section className="card"><Busy>{busy}</Busy></section>;
+  if (busy) return <section className="card shadow"><Busy>{busy}</Busy></section>;
 
   switch (job.status) {
     case 'pending_approval':
       return (
-        <section className="card" aria-label="Approval needed">
+        <section className="card shadow" aria-label="Approval needed">
           <header><h2>Your approval is needed</h2></header>
           <div className="notice warn">{job.note}</div>
           <p className="muted small" style={{ margin: '12px 0' }}>This is the spending guardrail. Nothing has been sent to PayPal yet.</p>
@@ -90,7 +87,7 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
 
     case 'awaiting_funds':
       return (
-        <section className="card" aria-label="Fund the job">
+        <section className="card shadow" aria-label="Fund the job">
           <header><h2>Step 1: hold the funds</h2></header>
           <p className="muted">You approve a <b>hold</b> with PayPal. <b>You are not charged</b> until the work is verified. If it never passes, the hold is released and you keep your money.</p>
           <div className="row" style={{ marginTop: 14 }}>
@@ -103,7 +100,7 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
 
     case 'funded':
       return (
-        <section className="card" aria-label="Worker">
+        <section className="card shadow" aria-label="Worker">
           <header><h2>Step 2: the work</h2><span className="faint">{left} attempt{left === 1 ? '' : 's'} left</span></header>
           {lastFail && <div className="notice warn small" style={{ marginBottom: 12 }}><b>Last attempt failed.</b> {lastFail.feedback}</div>}
           <p className="muted">Funds are held. Put a worker on it. An AI worker agent writes the deliverable, then the verifier checks it for real.</p>
@@ -137,7 +134,7 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
     case 'escalated': {
       const r = job.pendingRuling!;
       return (
-        <section className="card" aria-label="Sign-off needed">
+        <section className="card shadow" aria-label="Sign-off needed">
           <header><h2>Your sign-off is needed</h2></header>
           <div className="notice warn">{job.note}</div>
           <div style={{ margin: '14px 0' }}>
@@ -157,7 +154,7 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
 
     case 'payout_failed':
       return (
-        <section className="card" aria-label="Payout failed">
+        <section className="card shadow" aria-label="Payout failed">
           <header><h2>Payout needs a retry</h2></header>
           <div className="notice bad">{job.note}</div>
           <p className="muted small" style={{ margin: '12px 0' }}>The money is captured and safe. Retrying uses the same idempotency key, so the worker can never be paid twice.</p>
@@ -169,7 +166,7 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
     case 'settled':
     case 'refunded':
       return (
-        <section className="card" aria-label="Result">
+        <section className="card shadow" aria-label="Result">
           <header><h2>{job.status === 'paid' ? 'Work verified. Worker paid.' : job.status === 'settled' ? 'Dispute settled' : 'Hold released. Client keeps the money.'}</h2></header>
           <p className="muted">
             {job.status === 'paid' && `All checks passed, PayPal captured ${usd(job.amount.value)} and paid the worker automatically.`}
@@ -181,7 +178,7 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
       );
 
     case 'rejected':
-      return <section className="card"><header><h2>Rejected by policy</h2></header><div className="notice bad">{job.note}</div></section>;
+      return <section className="card shadow"><header><h2>Rejected by policy</h2></header><div className="notice bad">{job.note}</div></section>;
   }
 }
 

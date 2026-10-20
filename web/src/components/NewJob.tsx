@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { useToast } from '../ui';
+import { Icon, useToast } from '../ui';
 
 const EXAMPLES: { label: string; amount: string; text: string }[] = [
   {
@@ -46,14 +46,15 @@ export function NewJob({ onCreated }: { onCreated: (id: string) => void }) {
   }
 
   return (
-    <form className="card stack" onSubmit={submit} style={{ gap: 14 }} aria-label="Post a job">
+    <form id="new-job" className="card shadow stack" onSubmit={submit} style={{ gap: 16, position: 'sticky', top: 96 }} aria-label="Post a job">
       <header style={{ marginBottom: 0 }}>
         <h2>Post a job</h2>
-        <span className="faint">AI turns it into a checkable contract</span>
+        <span className="faint">AI writes the contract</span>
       </header>
       <label className="field">
         What do you need done?
         <textarea
+          id="job-request"
           value={request}
           onChange={(e) => setRequest(e.target.value)}
           placeholder="Describe the work in plain English. The AI will write the acceptance tests."
@@ -70,15 +71,13 @@ export function NewJob({ onCreated }: { onCreated: (id: string) => void }) {
           </button>
         ))}
       </div>
-      <div className="row" style={{ alignItems: 'end' }}>
-        <label className="field" style={{ width: 160 }}>
-          Budget (USD)
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" pattern="\d+(\.\d{1,2})?" required name="amount" />
-        </label>
-        <button className="btn primary lg" disabled={busy} style={{ flex: 1, minWidth: 180 }}>
-          {busy ? 'AI is writing the contract…' : 'Create contract'}
-        </button>
-      </div>
+      <label className="field">
+        Budget (USD)
+        <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" pattern="\d+(\.\d{1,2})?" required name="amount" />
+      </label>
+      <button className="btn primary lg" disabled={busy}>
+        {busy ? 'AI is writing the contract…' : <>Create contract<Icon name="arrow" /></>}
+      </button>
     </form>
   );
 }

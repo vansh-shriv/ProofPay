@@ -1,51 +1,53 @@
-import { useEffect, useState } from 'react';
-import { api, type Job } from '../api';
 import { totals, usd } from '../format';
-import { useToast } from '../ui';
+import { useApp } from '../data';
+import { Icon, type IconName } from '../ui';
+import { Hero } from './Hero';
 import { JobList } from './JobList';
 import { NewJob } from './NewJob';
 
+function Stat({ tone, icon, label, value, sub }: { tone: string; icon: IconName; label: string; value: string; sub: string }) {
+  return (
+    <div className={`stat ${tone}`}>
+      <div className="top"><span>{label}</span><span className="ico"><Icon name={icon} /></span></div>
+      <div><div className="value">{value}</div><div className="sub">{sub}</div></div>
+    </div>
+  );
+}
+
+const STEPS = [
+  ['Describe', 'AI turns plain English into a contract with real acceptance tests or a rubric.'],
+  ['Hold', 'PayPal authorizes the funds. You are not charged until the work is verified.'],
+  ['Prove', 'The worker submits. The verifier runs the code or reviews the writing for real.'],
+  ['Release', 'Pass: PayPal captures and pays out. Dispute: an AI arbiter splits fairly.'],
+];
+
 export function Home() {
-  const [jobs, setJobs] = useState<Job[] | null>(null);
-  const toast = useToast();
-
-  useEffect(() => {
-    let live = true;
-    const load = () => api.jobs().then((j) => live && setJobs(j)).catch((e) => toast(e.message, true));
-    load();
-    const t = setInterval(load, 4000);
-    return () => { live = false; clearInterval(t); };
-  }, [toast]);
-
+  const { jobs, reload } = useApp();
   const t = totals(jobs ?? []);
   return (
-    <main className="page">
-      <section className="hero">
-        <h1>Pay only when the work is proven.</h1>
-        <p className="muted">
-          ProofPay holds your money with PayPal, lets a worker (human or AI agent) do the job, then <b>actually checks the work</b>: code is run against tests,
-          writing is reviewed against a rubric. Pass and the worker is paid automatically. Dispute and an AI arbiter splits the funds fairly.
-        </p>
+    <>
+      <Hero />
+
+      <section className="stats" aria-label="Totals">
+        <Stat tone="sky" icon="lock" label="Held by PayPal" value={usd(t.held)} sub="authorized, not yet charged" />
+        <Stat tone="mint" icon="wallet" label="Paid to workers" value={usd(t.paidOut)} sub="released after verification" />
+        <Stat tone="butter" icon="undo" label="Returned to clients" value={usd(t.returned)} sub="refunds and unused holds" />
+        <Stat tone="lav" icon="file" label="Contracts" value={String(t.jobs)} sub="created so far" />
       </section>
 
-      <div className="stats" aria-label="Totals">
-        <div className="stat held"><div className="label">Held by PayPal</div><div className="value">{usd(t.held)}</div><div className="sub">authorized, not yet charged</div></div>
-        <div className="stat paid"><div className="label">Paid to workers</div><div className="value">{usd(t.paidOut)}</div><div className="sub">after verification</div></div>
-        <div className="stat"><div className="label">Returned to clients</div><div className="value">{usd(t.returned)}</div><div className="sub">refunds and unused holds</div></div>
-        <div className="stat"><div className="label">Contracts</div><div className="value">{t.jobs}</div><div className="sub">total</div></div>
-      </div>
-
-      <div className="how" aria-label="How it works">
-        <div><b>Describe</b>AI writes a contract with tests or a rubric.</div>
-        <div><b>Hold</b>PayPal authorizes the funds. Nothing is charged yet.</div>
-        <div><b>Prove</b>The worker submits. The verifier runs it for real.</div>
-        <div><b>Release</b>Pass: auto-capture and payout. Dispute: AI arbiter.</div>
-      </div>
-
-      <div className="grid-2">
-        <NewJob onCreated={(id) => { location.hash = `#/jobs/${id}`; }} />
+      <div className="cols">
         {jobs ? <JobList jobs={jobs} /> : <div className="card empty">Loading…</div>}
+        <NewJob onCreated={(id) => { reload(); location.hash = `#/jobs/${id}`; }} />
       </div>
-    </main>
+
+      <section id="how" aria-label="How it works">
+        <div className="section-h"><h2>How ProofPay works</h2></div>
+        <div className="how">
+          {STEPS.map(([title, text], i) => (
+            <div key={title}><span className="n">{i + 1}</span><b>{title}</b><p>{text}</p></div>
+          ))}
+        </div>
+      </section>
+    </>
   );
 }

@@ -59,7 +59,7 @@ Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free ti
 | `npm run demo` | build UI + start server |
 | `npm run dev` / `npm run dev:web` | API with reload / Vite dev server (proxies to the API) |
 | `npm test` | 72 unit + integration tests |
-| `npm run e2e` | 8 real-browser tests (Playwright + Chrome), also regenerates `docs/screenshots/` |
+| `npm run e2e` | 11 real-browser tests (Playwright + Chrome), also regenerates `docs/screenshots/` |
 | `npm run doctor` | checks your `.env`, PayPal and Gemini connectivity |
 | `npm run smoke` | sends a $1 sandbox payout |
 | `npm run live-ai` | exercises the real Gemini prompts |
@@ -73,7 +73,7 @@ Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free ti
 
 ## Docs
 - [00 Hackathon brief](docs/00-hackathon-brief.md) · [01 Plan](docs/01-plan.md) · [02 Architecture](docs/02-architecture.md)
-- [03 Progress log](docs/03-progress-log.md) · [04 Test report](docs/04-test-report.md)
+- [03 Progress log](docs/03-progress-log.md) · [04 Test report](docs/04-test-report.md) · [05 Submission kit](docs/05-submission.md) · [06 Design notes](docs/06-design-notes.md)
 
 ## License
 MIT

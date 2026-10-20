@@ -1,10 +1,19 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const shot = async (page: Page, name: string) => {
-  // Every screenshot doubles as a layout check: the page must never be wider than the window.
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  expect(overflow, `horizontal overflow on ${name}`).toBeLessThanOrEqual(1);
+  // Every screenshot doubles as a layout check: nothing may be wider than the window or its scroll panel.
+  const m = await page.evaluate(() => {
+    const p = document.querySelector('.panel') as HTMLElement;
+    return { doc: document.documentElement.scrollWidth - document.documentElement.clientWidth, panel: p.scrollWidth - p.clientWidth, height: p.scrollHeight };
+  });
+  expect(m.doc, `horizontal page overflow on ${name}`).toBeLessThanOrEqual(1);
+  expect(m.panel, `horizontal panel overflow on ${name}`).toBeLessThanOrEqual(1);
+  // The desktop UI scrolls inside its panel: grow the window to the content height so the screenshot shows everything.
+  const vp = page.viewportSize()!;
+  const grow = vp.width > 960 && m.height + 60 > vp.height;
+  if (grow) { await page.setViewportSize({ width: vp.width, height: m.height + 60 }); await page.waitForTimeout(200); }
   await page.screenshot({ path: `docs/screenshots/${name}.png`, fullPage: true });
+  if (grow) await page.setViewportSize(vp);
 };
 
 async function postJob(page: Page, example: string) {
@@ -24,7 +33,9 @@ async function fundViaPayPal(page: Page, amountText: RegExp) {
 test('home page explains the product and shows the mode', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Pay only when the work is proven.' })).toBeVisible();
-  await expect(page.getByText('PayPal Simulator')).toBeVisible();
+  await expect(page.getByText('Built-in PayPal simulator')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Ledger' })).toBeVisible();
+  await expect(page.getByText(/gemini/i)).toHaveCount(0); // internals are not shown in the chrome
   await expect(page.getByLabel('How it works')).toBeVisible();
   await shot(page, '01-home');
 });
@@ -90,7 +101,8 @@ test('spending policy blocks a job over the hard limit', async ({ page }) => {
 
 test('policy page saves and human-approval gate works', async ({ page }) => {
   await page.goto('/#/policy');
-  await expect(page.getByRole('heading', { name: 'Spending policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Policy', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Guardrails', exact: true })).toBeVisible();
   await shot(page, '07-policy');
   await page.goto('/');
   await page.getByLabel('What do you need done?').fill('Write a JavaScript function called unique that removes duplicates from an array keeping order.');
@@ -110,7 +122,7 @@ test('ledger shows payments and audit log in AG Grid', async ({ page }) => {
   await expect(page.getByRole('gridcell', { name: '$45.00' }).first()).toBeVisible(); // dollars, not cents
   await shot(page, '09-ledger-payments');
   await page.getByRole('tab', { name: 'Audit log' }).click();
-  await page.getByLabel('Filter rows').fill('PASSED');
+  await page.getByLabel('Search jobs').fill('PASSED');
   await expect(page.getByText('Verifier: PASSED').first()).toBeVisible();
   await shot(page, '10-ledger-audit');
 });
@@ -121,4 +133,44 @@ test('mobile layout has no horizontal scroll', async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await shot(page, '11-mobile-home');
+});
+
+test('navigation: sidebar links work and mark the current page', async ({ page }) => {
+  await page.goto('/');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(nav.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('link', { name: 'Policy' }).click();
+  await expect(page.getByRole('heading', { name: 'Guardrails', exact: true })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Policy' })).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('link', { name: 'Ledger' }).click();
+  await expect(nav.getByRole('link', { name: 'Ledger' })).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('link', { name: 'Overview' }).click();
+  await expect(page.getByRole('heading', { name: 'Pay only when the work is proven.' })).toBeVisible();
+});
+
+test('the panel scrolls, a footer ends the page, and back-to-top returns', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/');
+  const panel = page.locator('.panel');
+  expect(await panel.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true); // content taller than the window
+  await expect(page.getByRole('contentinfo')).not.toBeInViewport();
+  await page.getByRole('contentinfo').scrollIntoViewIfNeeded();
+  await expect(page.getByRole('contentinfo')).toBeInViewport();
+  await expect(page.getByRole('contentinfo').getByText('MIT License')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to top' })).toBeVisible();
+  await page.getByRole('button', { name: 'Back to top' }).click();
+  await expect.poll(() => panel.evaluate((el) => el.scrollTop)).toBe(0);
+  await shot(page, '12-footer');
+});
+
+test('top bar: search filters jobs and the bell shows what needs attention', async ({ page }) => {
+  // a job above the auto-approve limit waits for a human, so the bell must light up
+  await page.request.post('/api/jobs', { data: { request: 'Write a JavaScript function called unique that removes duplicates.', amount: '400' } });
+  await page.goto('/');
+  await page.getByLabel('Search jobs').fill('zzz-nothing');
+  await expect(page.getByText('Nothing matches.')).toBeVisible();
+  await page.getByLabel('Search jobs').fill('');
+  await expect(page.getByRole('button', { name: /need your attention/ })).toBeVisible();
+  await page.getByRole('button', { name: /need your attention/ }).click();
+  await expect(page.getByRole('region', { name: 'Needs your attention' })).toBeInViewport();
 });

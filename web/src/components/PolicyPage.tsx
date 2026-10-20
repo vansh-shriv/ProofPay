@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Policy } from '../api';
-import { useToast } from '../ui';
+import { Icon, useToast } from '../ui';
 
 type Field = { key: keyof Policy; label: string; help: string; kind: 'usd' | 'ratio' };
 const FIELDS: Field[] = [
@@ -20,7 +20,7 @@ export function PolicyPage() {
     api.policy().then((pol) => { setP(pol); setDraft(toDraft(pol)); }).catch((e) => toast(e.message, true));
   }, [toast]);
 
-  if (!p) return <main className="page"><div className="card empty">Loading…</div></main>;
+  if (!p) return <div className="card empty">Loading…</div>;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -41,9 +41,9 @@ export function PolicyPage() {
   }
 
   return (
-    <main className="page">
-      <div><h1>Spending policy</h1><p className="muted">Guardrails that let an AI agent act with money safely. Break a rule and the agent has to ask a human first.</p></div>
-      <form className="card stack" onSubmit={save} aria-label="Policy">
+    <div className="cols">
+      <form className="card shadow stack" onSubmit={save} aria-label="Policy" style={{ gap: 22 }}>
+        <header style={{ marginBottom: 0 }}><h2>Guardrails</h2></header>
         <div className="policy-grid">
           {FIELDS.map((f) => (
             <label className="field" key={f.key}>
@@ -53,9 +53,16 @@ export function PolicyPage() {
             </label>
           ))}
         </div>
-        <div><button className="btn primary">Save policy</button></div>
+        <div><button className="btn primary lg">Save policy<Icon name="arrow" /></button></div>
       </form>
-    </main>
+      <aside className="money" aria-label="Why guardrails">
+        <header><h2>Why guardrails?</h2></header>
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.25 }}>Let an AI agent spend money without losing control.</div>
+        <p style={{ color: '#b7b9c6', fontSize: 14.5 }}>
+          Every job is checked against these rules before PayPal is touched. Small jobs flow through on their own. Anything bigger, or any ruling the AI is unsure about, stops and waits for a human. Every decision is written to the audit log.
+        </p>
+      </aside>
+    </div>
   );
 }
 

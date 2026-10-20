@@ -18,10 +18,10 @@ export function Stepper({ job }: { job: Job }) {
   else if (['paid', 'settled', 'refunded'].includes(s)) { done = 4; now = -1; }
   else if (s === 'rejected') { bad = 0; now = -1; }
   return (
-    <ol className="stepper" aria-label="Progress" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+    <ol className="stepper" aria-label="Progress">
       {labels.map((l, i) => (
         <li key={l} className={`step ${i === bad ? 'bad' : i < done ? 'done' : i === now ? 'now' : ''}`} aria-current={i === now ? 'step' : undefined}>
-          <span className="dot" />{l}
+          <span className="dot">{i < done && i !== bad ? '✓' : i === bad ? '!' : ''}</span>{l}
         </li>
       ))}
     </ol>
@@ -109,16 +109,16 @@ export function MoneyCard({ job }: { job: Job }) {
   const held = job.status === 'funded' || job.status === 'escalated';
   const pctOf = (n: number) => `${total ? (n / total) * 100 : 0}%`;
   return (
-    <section className="card flow" aria-label="Money">
-      <header style={{ marginBottom: 0 }}><h2>Money</h2><Badge tone="neutral" plain>{job.amount.currency}</Badge></header>
+    <section className="money" aria-label="Money">
+      <header><h2>Money</h2><span className="faint">{job.amount.currency}</span></header>
       <div className="bigmoney">{usd(job.amount.value, job.amount.currency)}</div>
       <div className="flow-bar" role="img" aria-label="Where the money is">
         {held && <span className="seg-held" style={{ width: '100%' }} />}
         {st && <><span className="seg-worker" style={{ width: pctOf(w) }} /><span className="seg-client" style={{ width: pctOf(cl) }} /></>}
       </div>
       <div className="legend">
-        {held && <span><i style={{ background: 'var(--brand)' }} />Held by PayPal - client is not charged yet</span>}
-        {!held && !st && <span className="muted">Nothing is held or charged yet.</span>}
+        {held && <span><i style={{ background: 'var(--sky)' }} />Held by PayPal - client is not charged yet</span>}
+        {!held && !st && <span>Nothing is held or charged yet.</span>}
         {st && <span><i className="seg-worker" />Worker {usd(w)}</span>}
         {st && cl > 0 && <span><i className="seg-client" />Back to client {usd(cl)}</span>}
       </div>
