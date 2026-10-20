@@ -1,0 +1,27 @@
+{
+  "name": "proofpay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProofPay - payment released only when the work is proven (PayPal + AI)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "tsx watch server/src/index.ts",
+    "start": "tsx server/src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "doctor": "tsx scripts/doctor.ts"
+  },
+  "dependencies": {
+    "fastify": "^5.12.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
