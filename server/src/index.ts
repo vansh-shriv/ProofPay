@@ -9,6 +9,8 @@ import { JobService } from './core/jobs';
 import { Store } from './core/store';
 import { createPaymentProvider } from './payments';
 import { registerRoutes, type RouteDeps } from './routes';
+import { MockPaymentProvider } from './payments/mock';
+import { seedDemo } from './seed';
 
 export function buildApp(cfg: Config = loadConfig(), overrides: Partial<Pick<RouteDeps, 'rateLimit'>> = {}) {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test', bodyLimit: 100_000 });
@@ -35,7 +37,11 @@ export function buildApp(cfg: Config = loadConfig(), overrides: Partial<Pick<Rou
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { app, cfg } = buildApp();
+  const { app, cfg, jobs, payments, store } = buildApp();
+  // Simulator mode only: give first-time visitors something to look at. Opt out with SEED_DEMO=false.
+  if (payments instanceof MockPaymentProvider && process.env.SEED_DEMO !== 'false') {
+    await seedDemo(jobs, payments, store).catch((e) => console.error('seed failed:', e));
+  }
   app.listen({ port: cfg.port, host: '0.0.0.0' }).catch((e) => {
     console.error(e);
     process.exit(1);

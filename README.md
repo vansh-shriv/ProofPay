@@ -3,7 +3,7 @@
 **Payment released only when the work is proven.** An AI-verified trust layer for freelance work —
 human or AI agent — built on the PayPal developer platform.
 
-> Status: under active development for the PayPal AI Hackathon. See `docs/` for plan, architecture and progress.
+> Built for the **PayPal AI Hackathon**. Verified end to end against the real PayPal sandbox and real Gemini. See `docs/` for the plan, architecture, test report and progress log.
 
 ## How it works
 1. A client describes a job in plain English. AI turns it into a machine-checkable contract.
@@ -12,8 +12,7 @@ human or AI agent — built on the PayPal developer platform.
 4. Pass: PayPal captures the funds and **pays the worker out**. Fail: feedback and retry.
    Dispute: an **AI arbiter** weighs the evidence and splits or voids the funds.
 
-Built with: PayPal Orders v2 (authorize/capture/void), Payments (refunds), Payouts, Webhooks; Google Gemini for AI.
-Sandbox only.
+Built with: PayPal Orders v2 (authorize), Payments v2 (capture incl. partial, void, refund), Payouts v1; Google Gemini for AI. **PayPal sandbox only.**
 
 ## Quick start (no keys needed)
 ```bash
@@ -29,6 +28,30 @@ Try it: pick an example, **Create contract**, **Hold with PayPal**, then **Hire 
 
 ## Real PayPal sandbox + Gemini
 See [docs/SETUP-paypal-gemini.md](docs/SETUP-paypal-gemini.md), then set `PAYMENTS_MODE=paypal` and `LLM_PROVIDER=gemini` in `.env`.
+
+## What is real and what is simulated
+| | Default (`.env.example`) | Real mode |
+|---|---|---|
+| Payments | built-in PayPal **simulator** (same state rules: hold, partial capture, void, refund, idempotent payout) | **PayPal sandbox** REST APIs (`PAYMENTS_MODE=paypal`) |
+| AI | deterministic **mock** (templates + heuristics) | **Gemini** (`LLM_PROVIDER=gemini`) |
+| Code verification | always real: submitted code is executed in a sandbox | same |
+The header badge shows which mode you are in ("PayPal Sandbox" or "PayPal Simulator"). Real mode was verified end to end:
+hold -> verify -> capture -> payout, see [docs/04-test-report.md](docs/04-test-report.md).
+
+## For judges: trying the real PayPal flow
+1. Open the hosted demo (link in the Devpost submission) or run it locally with real keys.
+2. Create a contract, click **Hold with PayPal**, and log in with the sandbox buyer account:
+   `TEST_BUYER_EMAIL` / `TEST_BUYER_PASSWORD` *(filled in on the Devpost page: sandbox accounts hold fake money)*.
+3. Hire the AI worker. Watch the capture and the payout appear in the job's audit trail and in the Ledger.
+
+## Deploy (Render)
+`render.yaml` is a Blueprint. Render dashboard -> **New -> Blueprint** -> select this repo -> fill in the secrets.
+Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free tier has an ephemeral disk, so data resets on redeploy.
+
+## Known limits (honest)
+- PayPal authorizations expire (honor period about 3 days, valid up to 29 days): this is *escrow-like*, not legal escrow.
+- No user accounts: anyone with the link can use the demo. It is rate-limited and sandbox-only.
+- Test cases are visible to the worker. Hidden test sets are on the roadmap.
 
 ## Scripts
 | Command | What it does |

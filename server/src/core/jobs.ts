@@ -227,6 +227,7 @@ export class JobService {
       });
       if (['DENIED', 'CANCELED', 'FAILED'].includes(po.status)) throw new Error(`PayPal payout ${po.status}`);
       job.payoutBatchId = po.payoutBatchId;
+      job.payoutStatus = po.status;
       job.status = job.settlement!.outcome === 'paid' ? 'paid' : 'settled';
       job.note = undefined;
       store.saveJob(job);
@@ -247,6 +248,24 @@ export class JobService {
       this.d.store.addEvent(id, 'payout_retry', 'human', {});
       return this.payWorker(job);
     });
+  }
+
+  /** Ask PayPal where a payout is (PENDING -> PROCESSING -> SUCCESS) and record changes. Never throws. */
+  async refreshPayout(id: string): Promise<Job> {
+    const job = this.must(id);
+    const final = ['SUCCESS', 'DENIED', 'FAILED', 'CANCELED'];
+    if (!job.payoutBatchId || (job.payoutStatus && final.includes(job.payoutStatus))) return job;
+    try {
+      const { status } = await this.d.payments.getPayoutStatus(job.payoutBatchId);
+      if (status !== job.payoutStatus) {
+        job.payoutStatus = status;
+        this.d.store.saveJob(job);
+        this.d.store.addEvent(id, 'payout_status', 'system', { status });
+      }
+    } catch {
+      /* transient PayPal error: keep the last known status */
+    }
+    return job;
   }
 
   // ---------- helpers ----------

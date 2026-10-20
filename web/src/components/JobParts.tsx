@@ -129,6 +129,7 @@ export function MoneyCard({ job }: { job: Job }) {
         {job.authorizationExpiresAt && <><dt>Hold expires</dt><dd>{new Date(job.authorizationExpiresAt).toLocaleDateString()}</dd></>}
         {job.captureId && <><dt>Capture</dt><dd className="mono">{job.captureId}</dd></>}
         {job.payoutBatchId && <><dt>Payout batch</dt><dd className="mono">{job.payoutBatchId}</dd></>}
+        {job.payoutStatus && <><dt>Payout status</dt><dd>{job.payoutStatus}</dd></>}
       </dl>
     </section>
   );

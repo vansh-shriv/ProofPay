@@ -59,9 +59,13 @@ export function registerRoutes(app: FastifyInstance, d: RouteDeps) {
   });
 
   const view = (id: string) => ({ job: d.jobs.get(id), events: d.store.events(id) });
+  const freshView = async (id: string) => {
+    await d.jobs.refreshPayout(id);
+    return view(id);
+  };
 
   app.get('/api/jobs', async () => ({ jobs: d.store.listJobs() }));
-  app.get('/api/jobs/:id', async (req) => view((req.params as any).id));
+  app.get('/api/jobs/:id', async (req) => freshView((req.params as any).id));
   app.get('/api/events', async () => ({ events: d.store.events() }));
 
   app.post('/api/jobs', async (req, reply) => {

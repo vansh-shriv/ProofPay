@@ -94,7 +94,7 @@ export class MockAI implements AI {
     const words = deliverable.trim().split(/\s+/).filter(Boolean).length;
     const scores = criteria.map((c) => {
       if (c.id === 'c2') return { id: c.id, score: Math.min(10, (words / 40) * 10), reason: `${words} words` };
-      if (c.id === 'c3') return { id: c.id, score: /\n|[.!?]\s/.test(deliverable) ? 9 : 4, reason: 'structure heuristic' };
+      if (c.id === 'c3') return { id: c.id, score: words < 3 ? 0 : /\n|[.!?]\s/.test(deliverable) ? 9 : 4, reason: 'structure heuristic' };
       const kws = (c.description.split(':')[1] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
       const hit = kws.filter((k) => text.includes(k)).length;
       return { id: c.id, score: kws.length ? (hit / kws.length) * 10 : 5, reason: `${hit}/${kws.length} topics covered` };

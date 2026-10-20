@@ -25,6 +25,7 @@ export function describeEvent(e: AuditEvent): { text: string; tone: Tone } {
     case 'hold_voided': return { text: `Hold voided: ${money(d.refunded)} stays with the client, nothing was charged`, tone: 'neutral' };
     case 'payout_sent': return { text: `Paid ${money(d.amount)} to ${d.to} via PayPal Payouts (${d.status})`, tone: 'good' };
     case 'payout_failed': return { text: `Payout failed: ${d.error}`, tone: 'bad' };
+    case 'payout_status': return { text: `PayPal payout status: ${d.status}`, tone: d.status === 'SUCCESS' ? 'good' : ['DENIED', 'FAILED', 'CANCELED'].includes(d.status) ? 'bad' : 'info' };
     case 'payout_retry': return { text: 'Payout retried by a human', tone: 'info' };
     default: return { text: e.type, tone: 'neutral' };
   }

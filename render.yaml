@@ -1,0 +1,30 @@
+# Render Blueprint: one web service that serves the API and the built UI.
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repo. Then fill the `sync: false` secrets.
+services:
+  - type: web
+    name: proofpay
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      # Render injects RENDER_EXTERNAL_URL; ProofPay uses it for PayPal's return URL automatically.
+      - key: DB_PATH
+        value: /tmp/proofpay.db        # free tier has an ephemeral disk: data resets on redeploy / spin-down
+      - key: PAYMENTS_MODE
+        value: paypal                  # set to "mock" for a keyless simulator-only demo
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WORKER_EMAIL
+        sync: false
+      - key: LLM_PROVIDER
+        value: gemini                  # set to "mock" for a keyless demo
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash,gemini-3.8-flash,gemini-3.1-flash-lite

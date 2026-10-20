@@ -35,6 +35,8 @@ export interface Job {
   authorizationExpiresAt?: string;
   captureId?: string;
   payoutBatchId?: string;
+  /** Last known PayPal payout batch status (PENDING / PROCESSING / SUCCESS ...). */
+  payoutStatus?: string;
   ruling?: Ruling;
   pendingRuling?: Ruling;
   settlement?: { outcome: 'paid' | 'split' | 'refunded'; workerAmount: Money; clientAmount: Money };
