@@ -501,3 +501,32 @@ test.describe('brand card 3D + right rail', () => {
     expect(Math.abs(form!.y + form!.height - (railBox!.y + railBox!.height))).toBeLessThanOrEqual(2);
   });
 });
+
+test('strict security policy: the whole app works with zero CSP violations or console errors', async ({ page }) => {
+  const problems: string[] = [];
+  page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
+  page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (e) => ((window as any).__csp = [...((window as any).__csp ?? []), `${e.violatedDirective} ${e.blockedURI}`]));
+  });
+
+  await page.goto('/');
+  // the response really carries the policy
+  const res = await page.request.get('/');
+  expect(res.headers()['content-security-policy']).toContain("script-src 'self'");
+
+  await page.getByLabel('Choose images').setInputFiles({ name: 'm.png', mimeType: 'image/png', buffer: TINY_PNG }); // data: URL thumbnail must be allowed
+  await expect(page.getByRole('list', { name: 'Attached images' }).getByRole('img')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Switch to dark mode' }).click(); // theme + AG Grid injected styles
+  await page.goto('/#/ledger');
+  await expect(page.locator('.ag-root-wrapper').first()).toBeVisible({ timeout: 15_000 }); // grid renders (rows may be empty on a fresh DB)
+  await page.goto('/#/policy');
+  await expect(page.getByRole('heading', { name: 'Guardrails', exact: true })).toBeVisible();
+  await postJob(page, PALINDROME);
+  await fundViaPayPal(page, /Hold \$45\.00 with PayPal/); // simulator page + form post + redirect
+  await page.getByRole('button', { name: 'Hire AI worker' }).click();
+  await expect(page.getByRole('heading', { name: 'Work verified. Worker paid.' })).toBeVisible();
+
+  expect(await page.evaluate(() => (window as any).__csp ?? [])).toEqual([]);
+  expect(problems).toEqual([]);
+});

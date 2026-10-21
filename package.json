@@ -21,7 +21,8 @@
     "build": "vite build --config web/vite.config.ts",
     "demo": "npm run build && npm start",
     "e2e": "playwright test",
-    "live-vision": "tsx scripts/live-vision.ts"
+    "live-vision": "tsx scripts/live-vision.ts",
+    "secrets": "tsx scripts/check-secrets.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.6",

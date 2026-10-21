@@ -21,14 +21,16 @@ const Dispute = z.object({ clientClaim: z.string().trim().min(3).max(2000), work
 const Resolve = z.object({ workerShareBps: z.number().int().min(0).max(10_000).optional() });
 
 /** Tiny fixed-window limiter: protects the free LLM quota and the PayPal sandbox from hammering. */
-function rateLimiter(max: number, windowMs: number) {
+function rateLimiter(max: number, windowMs: number, keyOf: (req: FastifyRequest) => string = (r) => r.ip, message = 'Too many requests, slow down.') {
   const hits = new Map<string, { n: number; reset: number }>();
   return (req: FastifyRequest, reply: FastifyReply): boolean => {
     const now = Date.now();
-    const h = hits.get(req.ip);
-    if (!h || h.reset < now) hits.set(req.ip, { n: 1, reset: now + windowMs });
+    if (hits.size > 5000) for (const [k, v] of hits) if (v.reset < now) hits.delete(k); // keep memory bounded
+    const key = keyOf(req);
+    const h = hits.get(key);
+    if (!h || h.reset < now) hits.set(key, { n: 1, reset: now + windowMs });
     else if (++h.n > max) {
-      reply.code(429).send({ error: 'Too many requests, slow down.' });
+      reply.code(429).send({ error: message });
       return false;
     }
     return true;
@@ -39,11 +41,14 @@ export interface RouteDeps {
   jobs: JobService;
   store: Store;
   payments: PaymentProvider;
-  rateLimit?: { max: number; windowMs: number };
+  /** Per-visitor limit (max requests per window) and a global cap that protects the shared AI quota on a public demo. */
+  rateLimit?: { max: number; windowMs: number; globalMax?: number; globalWindowMs?: number };
 }
 
 export function registerRoutes(app: FastifyInstance, d: RouteDeps) {
-  const limit = rateLimiter(d.rateLimit?.max ?? 30, d.rateLimit?.windowMs ?? 60_000);
+  const perVisitor = rateLimiter(d.rateLimit?.max ?? 30, d.rateLimit?.windowMs ?? 60_000);
+  const global = rateLimiter(d.rateLimit?.globalMax ?? 300, d.rateLimit?.globalWindowMs ?? 3_600_000, () => 'all', 'The demo is busy right now. Please try again in a little while.');
+  const limit = (req: FastifyRequest, reply: FastifyReply) => perVisitor(req, reply) && global(req, reply);
 
   app.setErrorHandler((err: any, _req, reply) => {
     if (err instanceof z.ZodError) {

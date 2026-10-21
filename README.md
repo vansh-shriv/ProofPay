@@ -50,7 +50,7 @@ hold -> verify -> capture -> payout, see [docs/04-test-report.md](docs/04-test-r
 3. Hire the AI worker. Watch the capture and the payout appear in the job's audit trail and in the Ledger.
 
 ## Deploy (Render)
-`render.yaml` is a Blueprint. Render dashboard -> **New -> Blueprint** -> select this repo -> fill in the secrets.
+Full guide: [docs/07-deploy-render.md](docs/07-deploy-render.md). Run `npm run secrets` before pushing. `render.yaml` is a Blueprint. Render dashboard -> **New -> Blueprint** -> select this repo -> fill in the secrets.
 Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free tier has an ephemeral disk, so data resets on redeploy.
 
 ## Known limits (honest)
@@ -64,8 +64,9 @@ Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free ti
 |---|---|
 | `npm run demo` | build UI + start server |
 | `npm run dev` / `npm run dev:web` | API with reload / Vite dev server (proxies to the API) |
-| `npm test` | 85 unit + integration tests |
-| `npm run e2e` | 29 real-browser tests (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
+| `npm test` | 92 unit + integration tests |
+| `npm run e2e` | 30 real-browser tests (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
+| `npm run secrets` | pre-push check: none of your `.env` secrets appear in the repo |
 | `npm run doctor` | checks your `.env`, PayPal and Gemini connectivity |
 | `npm run smoke` | sends a $1 sandbox payout |
 | `npm run live-ai` | exercises the real Gemini prompts |
@@ -80,7 +81,7 @@ Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free ti
 
 ## Docs
 - [00 Hackathon brief](docs/00-hackathon-brief.md) · [01 Plan](docs/01-plan.md) · [02 Architecture](docs/02-architecture.md)
-- [03 Progress log](docs/03-progress-log.md) · [04 Test report](docs/04-test-report.md) · [05 Submission kit](docs/05-submission.md) · [06 Design notes](docs/06-design-notes.md)
+- [03 Progress log](docs/03-progress-log.md) · [04 Test report](docs/04-test-report.md) · [05 Submission kit](docs/05-submission.md) · [06 Design notes](docs/06-design-notes.md) · [07 Deploy to Render](docs/07-deploy-render.md)
 
 ## License
 MIT
