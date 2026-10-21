@@ -16,7 +16,7 @@ export class MockPaymentProvider implements PaymentProvider {
   private orders = new Map<string, Order>();
   private auths = new Map<string, Auth>();
   private captures = new Map<string, Capture>();
-  private payouts = new Map<string, { status: string }>();
+  private payouts = new Map<string, { status: string; denied?: boolean }>();
 
   constructor(private readonly baseUrl = 'http://localhost:3000') {}
 
@@ -76,13 +76,16 @@ export class MockPaymentProvider implements PaymentProvider {
   async payout(i: PayoutInput) {
     // Idempotent on senderItemId, like PayPal's sender_batch_id.
     const id = `MOCK-PAYOUT-${i.senderItemId}`;
-    if (!this.payouts.has(id)) this.payouts.set(id, { status: 'SUCCESS' });
-    return { payoutBatchId: id, status: 'SUCCESS' };
+    // Simulates PayPal accepting a batch and then denying it later (receiver == sender): receivers ending in @self.test.
+    const denied = i.recipientEmail.endsWith('@self.test');
+    if (!this.payouts.has(id)) this.payouts.set(id, { status: denied ? 'PENDING' : 'SUCCESS', denied });
+    return { payoutBatchId: id, status: this.payouts.get(id)!.status };
   }
 
   async getPayoutStatus(payoutBatchId: string) {
     const p = this.payouts.get(payoutBatchId);
     if (!p) throw new PaymentError('PAYOUT_NOT_FOUND', 404);
+    if (p.denied) return { status: 'FAILED', error: 'SELF_PAY_NOT_ALLOWED: Payment to self is not allowed.' };
     return { status: p.status };
   }
 

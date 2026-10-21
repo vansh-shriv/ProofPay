@@ -38,6 +38,8 @@ export interface Job {
   payoutBatchId?: string;
   /** Last known PayPal payout batch status (PENDING / PROCESSING / SUCCESS ...). */
   payoutStatus?: string;
+  /** Payout batches PayPal has accepted for this job (a retry after a failed batch needs a fresh id). */
+  payoutAttempts?: number;
   /** Reference images attached to the description (bytes live in the attachments table). */
   attachments?: { idx: number; name: string; type: string; size: number }[];
   ruling?: Ruling;

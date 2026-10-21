@@ -530,3 +530,24 @@ test('strict security policy: the whole app works with zero CSP violations or co
   expect(await page.evaluate(() => (window as any).__csp ?? [])).toEqual([]);
   expect(problems).toEqual([]);
 });
+
+test('payout denied later by PayPal: the job flips to "needs a retry", a human fixes the email, and it is paid', async ({ page }) => {
+  // the worker email equals the sender (simulated by *@self.test), exactly like the real SELF_PAY_NOT_ALLOWED case
+  const created = await page.request.post('/api/jobs', { data: { request: PALINDROME.request, amount: '45', workerEmail: 'worker@self.test' } });
+  const { job } = await created.json();
+  await page.goto(`/#/jobs/${job.id}`);
+  await fundViaPayPal(page, /Hold \$45\.00 with PayPal/);
+  await page.getByRole('button', { name: 'Hire AI worker' }).click();
+
+  // PayPal accepted the batch, then denies it: the page notices on its own (it polls while the payout is pending)
+  await expect(page.getByRole('heading', { name: 'Payout needs a retry' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/SELF_PAY_NOT_ALLOWED/).first()).toBeVisible();
+  await expect(page.getByText(/different account as the worker/i)).toBeVisible();
+  await shot(page, '19-payout-denied');
+
+  await page.getByLabel("Worker's PayPal email").fill('real.worker@example.com');
+  await page.getByRole('button', { name: 'Retry payout' }).click();
+  await expect(page.getByRole('heading', { name: 'Work verified. Worker paid.' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('real.worker@example.com').first()).toBeVisible();
+  await expect(page.getByText('Worker email corrected')).toBeVisible();
+});

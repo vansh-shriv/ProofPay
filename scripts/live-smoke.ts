@@ -16,9 +16,17 @@ const r = await pp.payout({
   senderItemId: `smoke-${randomUUID().slice(0, 8)}`,
 });
 console.log('payout created:', r);
-for (let i = 0; i < 5; i++) {
-  await new Promise((res) => setTimeout(res, 2000));
+// PayPal accepts a batch first and can deny it seconds later (e.g. SELF_PAY_NOT_ALLOWED), so wait for a FINAL status.
+let final = '';
+for (let i = 0; i < 30; i++) {
+  await new Promise((res) => setTimeout(res, 3000));
   const s = await pp.getPayoutStatus(r.payoutBatchId);
-  console.log(`status after ${(i + 1) * 2}s:`, s.status);
-  if (s.status === 'SUCCESS' || s.status === 'DENIED') break;
+  console.log(`status after ${(i + 1) * 3}s: ${s.status}${s.error ? `  (${s.error})` : ''}`);
+  if (['SUCCESS', 'DENIED', 'FAILED', 'CANCELED'].includes(s.status)) { final = s.status; break; }
 }
+if (final !== 'SUCCESS') {
+  console.error(`\nPayout did NOT succeed (${final || 'still pending'}).`);
+  console.error('If it says SELF_PAY_NOT_ALLOWED: PAYPAL_WORKER_EMAIL must be a DIFFERENT sandbox account than the business account that owns your REST app (use a separate Personal test account).');
+  process.exit(1);
+}
+console.log('\nPayout succeeded.');

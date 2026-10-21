@@ -156,6 +156,12 @@ export class PayPalProvider implements PaymentProvider {
 
   async getPayoutStatus(payoutBatchId: string) {
     const res = await this.call('GET', `/v1/payments/payouts/${payoutBatchId}`);
+    // A batch can look fine while its item failed (e.g. SELF_PAY_NOT_ALLOWED): surface the item's reason.
+    const bad = (res.items as Json[] | undefined)?.find((i) => ['FAILED', 'RETURNED', 'BLOCKED', 'REVERSED'].includes(i.transaction_status));
+    if (bad) {
+      const e = bad.errors as Json | undefined;
+      return { status: 'FAILED', error: e ? `${e.name}: ${e.message}` : `payout item ${bad.transaction_status}` };
+    }
     return { status: res.batch_header.batch_status as string };
   }
 }

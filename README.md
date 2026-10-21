@@ -5,6 +5,8 @@ human or AI agent — built on the PayPal developer platform.
 
 > Built for the **PayPal AI Hackathon**. Verified end to end against the real PayPal sandbox and real Gemini. See `docs/` for the plan, architecture, test report and progress log.
 
+**Live demo:** https://proofpay-kjpo.onrender.com (PayPal sandbox + Gemini) · **Code:** https://github.com/vansh-shriv/ProofPay · MIT
+
 ## How it works
 1. A client describes a job in plain English. AI turns it into a machine-checkable contract.
 2. PayPal **authorizes (holds)** the funds.
@@ -64,13 +66,14 @@ Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free ti
 |---|---|
 | `npm run demo` | build UI + start server |
 | `npm run dev` / `npm run dev:web` | API with reload / Vite dev server (proxies to the API) |
-| `npm test` | 92 unit + integration tests |
-| `npm run e2e` | 30 real-browser tests (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
+| `npm test` | 98 unit + integration tests |
+| `npm run e2e` | 31 real-browser tests (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
 | `npm run secrets` | pre-push check: none of your `.env` secrets appear in the repo |
 | `npm run doctor` | checks your `.env`, PayPal and Gemini connectivity |
 | `npm run smoke` | sends a $1 sandbox payout |
 | `npm run live-ai` | exercises the real Gemini prompts |
 | `npm run live-vision` | proves real Gemini reads an attached image |
+| `npm run check:live` | drives the deployed site end to end (hold, verify, capture, payout SUCCESS) |
 | `npm run e2e:live` | full real flow with a real PayPal approval click |
 
 ## Screenshots

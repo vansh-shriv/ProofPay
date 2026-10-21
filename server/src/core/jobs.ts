@@ -8,6 +8,16 @@ import { evaluateNewJob, evaluateRuling } from './policy';
 import type { AuditEvent, Job, Store } from './store';
 
 export class StateError extends Error {}
+
+const PAYOUT_FAILED = ['DENIED', 'CANCELED', 'FAILED'];
+const payoutId = (job: Job) => ((job.payoutAttempts ?? 0) === 0 ? job.id : `${job.id}-r${job.payoutAttempts}`);
+/** Plain-English next step for the failures people actually hit. */
+function payoutHint(reason: string): string {
+  if (/SELF_PAY_NOT_ALLOWED/.test(reason)) return ' The worker email is the same PayPal account that sends the money. Use a different account as the worker (in the sandbox: a separate Personal test account).';
+  if (/RECEIVER_UNREGISTERED|RECEIVER_UNCONFIRMED/.test(reason)) return ' PayPal does not recognise that worker email. Check the address.';
+  if (/INSUFFICIENT_FUNDS/.test(reason)) return ' The sending PayPal account does not have enough balance.';
+  return '';
+}
 export class PolicyError extends Error {}
 
 export interface JobServiceDeps {
@@ -227,45 +237,62 @@ export class JobService {
         recipientEmail: job.workerEmail,
         amount: job.settlement!.workerAmount,
         note: `ProofPay payment for: ${job.contract.title}`,
-        senderItemId: job.id, // idempotent: retries can never pay twice
+        // Idempotent: a retry that never reached PayPal reuses the id (cannot pay twice); once PayPal has a batch for an id,
+        // a retry after that batch FAILED needs a fresh one, which is only allowed when the old batch is known to be dead.
+        senderItemId: payoutId(job),
       });
-      if (['DENIED', 'CANCELED', 'FAILED'].includes(po.status)) throw new Error(`PayPal payout ${po.status}`);
       job.payoutBatchId = po.payoutBatchId;
       job.payoutStatus = po.status;
+      job.payoutAttempts = (job.payoutAttempts ?? 0) + 1;
+      if (PAYOUT_FAILED.includes(po.status)) return this.failPayout(job, `PayPal payout ${po.status}`);
       job.status = job.settlement!.outcome === 'paid' ? 'paid' : 'settled';
       job.note = undefined;
       store.saveJob(job);
       store.addEvent(job.id, 'payout_sent', 'system', { payoutBatchId: po.payoutBatchId, status: po.status, to: job.workerEmail, amount: job.settlement!.workerAmount });
     } catch (e) {
-      job.status = 'payout_failed';
-      job.note = `Payout failed: ${(e as Error).message}`;
-      store.saveJob(job);
-      store.addEvent(job.id, 'payout_failed', 'system', { error: (e as Error).message });
+      return this.failPayout(job, (e as Error).message);
     }
     return job;
   }
 
-  async retryPayout(id: string): Promise<Job> {
+  private failPayout(job: Job, reason: string): Job {
+    job.status = 'payout_failed';
+    job.note = `Payout failed: ${reason}${payoutHint(reason)}`;
+    this.d.store.saveJob(job);
+    this.d.store.addEvent(job.id, 'payout_failed', 'system', { error: reason });
+    return job;
+  }
+
+  /** Retry a failed payout, optionally to a corrected worker email. Refused while a previous batch is pending or succeeded (no double pay). */
+  async retryPayout(id: string, workerEmail?: string): Promise<Job> {
     return this.locked(id, async () => {
       const job = this.must(id);
       this.expect(job, 'payout_failed');
+      if (job.payoutBatchId && !PAYOUT_FAILED.includes(job.payoutStatus ?? '')) {
+        throw new StateError('The previous payout is still pending or already succeeded, so it cannot be retried');
+      }
+      if (workerEmail && workerEmail.trim().toLowerCase() !== job.workerEmail.toLowerCase()) {
+        this.d.store.addEvent(id, 'worker_email_changed', 'human', { from: job.workerEmail, to: workerEmail.trim() });
+        job.workerEmail = workerEmail.trim();
+      }
       this.d.store.addEvent(id, 'payout_retry', 'human', {});
       return this.payWorker(job);
     });
   }
 
-  /** Ask PayPal where a payout is (PENDING -> PROCESSING -> SUCCESS) and record changes. Never throws. */
+  /** Ask PayPal where a payout is (PENDING -> PROCESSING -> SUCCESS | DENIED) and record changes. A batch PayPal denies LATER turns the job into payout_failed. Never throws. */
   async refreshPayout(id: string): Promise<Job> {
     const job = this.must(id);
-    const final = ['SUCCESS', 'DENIED', 'FAILED', 'CANCELED'];
+    const final = ['SUCCESS', ...PAYOUT_FAILED];
     if (!job.payoutBatchId || (job.payoutStatus && final.includes(job.payoutStatus))) return job;
     try {
-      const { status } = await this.d.payments.getPayoutStatus(job.payoutBatchId);
+      const { status, error } = await this.d.payments.getPayoutStatus(job.payoutBatchId);
       if (status !== job.payoutStatus) {
         job.payoutStatus = status;
         this.d.store.saveJob(job);
-        this.d.store.addEvent(id, 'payout_status', 'system', { status });
+        this.d.store.addEvent(id, 'payout_status', 'system', { status, ...(error ? { error } : {}) });
       }
+      if (PAYOUT_FAILED.includes(status) && (job.status === 'paid' || job.status === 'settled')) return this.failPayout(job, error ?? `PayPal payout ${status}`);
     } catch {
       /* transient PayPal error: keep the last known status */
     }

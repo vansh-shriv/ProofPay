@@ -19,7 +19,8 @@ export interface PaymentProvider {
   voidHold(authorizationId: string): Promise<void>;
   refund(captureId: string, amount?: Money): Promise<{ refundId: string; status: string }>;
   payout(input: PayoutInput): Promise<{ payoutBatchId: string; status: string }>;
-  getPayoutStatus(payoutBatchId: string): Promise<{ status: string }>;
+  /** `status` is PENDING / PROCESSING / SUCCESS, or DENIED / FAILED / CANCELED (with PayPal's reason in `error`). */
+  getPayoutStatus(payoutBatchId: string): Promise<{ status: string; error?: string }>;
 }
 
 export interface CreateHoldInput {

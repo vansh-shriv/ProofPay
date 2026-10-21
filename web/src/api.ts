@@ -38,7 +38,7 @@ export const api = {
   submit: (id: string, deliverable: string) => call<JobView>('POST', `/api/jobs/${id}/submit`, { deliverable }),
   dispute: (id: string, clientClaim: string, workerClaim: string) => call<JobView>('POST', `/api/jobs/${id}/dispute`, { clientClaim, workerClaim }),
   resolve: (id: string, workerShareBps?: number) => call<JobView>('POST', `/api/jobs/${id}/resolve`, { workerShareBps }),
-  retryPayout: (id: string) => call<JobView>('POST', `/api/jobs/${id}/retry-payout`),
+  retryPayout: (id: string, workerEmail?: string) => call<JobView>('POST', `/api/jobs/${id}/retry-payout`, { workerEmail }),
   policy: () => call<{ policy: Policy }>('GET', '/api/policy').then((r) => r.policy),
   setPolicy: (p: Policy) => call<{ policy: Policy }>('PUT', '/api/policy', p).then((r) => r.policy),
 };

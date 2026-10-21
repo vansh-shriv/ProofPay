@@ -136,7 +136,10 @@ export function registerRoutes(app: FastifyInstance, d: RouteDeps) {
     return view((await d.jobs.resolveEscalation((req.params as any).id, b.workerShareBps)).id);
   });
 
-  app.post('/api/jobs/:id/retry-payout', async (req) => view((await d.jobs.retryPayout((req.params as any).id)).id));
+  app.post('/api/jobs/:id/retry-payout', async (req) => {
+    const b = z.object({ workerEmail: z.string().trim().email().optional() }).parse(req.body ?? {});
+    return view((await d.jobs.retryPayout((req.params as any).id, b.workerEmail)).id);
+  });
 
   app.get('/api/policy', async () => ({ policy: d.store.getPolicy() }));
   app.put('/api/policy', async (req) => {

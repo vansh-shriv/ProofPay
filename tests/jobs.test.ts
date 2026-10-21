@@ -259,6 +259,7 @@ describe('payout denied by PayPal', () => {
     const job = await fundedJob(env);
     const j = await env.jobs.submit(job.id, GOOD_SUM_EVENS);
     expect(j.status).toBe('payout_failed');
-    expect(j.payoutBatchId).toBeUndefined();
+    expect(j.payoutBatchId).toBe('B1'); // kept on purpose: a retry must know PayPal already has a (dead) batch and use a fresh id
+    expect(j.payoutAttempts).toBe(1);
   });
 });

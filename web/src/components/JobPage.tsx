@@ -18,6 +18,14 @@ export function JobPage({ id, error }: { id: string; error?: string }) {
 
   useEffect(() => { if (error) toast(error, true); }, [error, toast]);
 
+  // While PayPal is still processing the payout, keep checking: it can end in success or in a denial.
+  const pending = view && ['PENDING', 'PROCESSING'].includes(view.job.payoutStatus ?? '');
+  useEffect(() => {
+    if (!pending) return;
+    const t = setInterval(() => api.job(id).then(setView).catch(() => {}), 4000);
+    return () => clearInterval(t);
+  }, [pending, id]);
+
   const run = useCallback(async (label: string, fn: () => Promise<JobView>, ok?: (v: JobView) => string) => {
     setBusy(label);
     try {
@@ -69,6 +77,7 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
   const [cClaim, setCClaim] = useState('');
   const [wClaim, setWClaim] = useState('');
   const [override, setOverride] = useState('50');
+  const [payee, setPayee] = useState<string | undefined>(undefined);
   const left = job.contract.maxAttempts - job.attempts;
   const lastFail = job.verdicts.at(-1) && !job.verdicts.at(-1)!.passed ? job.verdicts.at(-1)! : undefined;
 
@@ -157,8 +166,12 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
         <section className="card shadow" aria-label="Payout failed">
           <header><h2>Payout needs a retry</h2></header>
           <div className="notice bad">{job.note}</div>
-          <p className="muted small" style={{ margin: '12px 0' }}>The money is captured and safe. Retrying uses the same idempotency key, so the worker can never be paid twice.</p>
-          <button className="btn primary" onClick={() => run('Retrying payout…', () => api.retryPayout(job.id), (v) => v.job.status === 'payout_failed' ? 'Still failing, see the note.' : 'Payout sent.')}>Retry payout</button>
+          <p className="muted small" style={{ margin: '12px 0' }}>The money is captured and safe. Retrying can never pay the worker twice.</p>
+          <label className="fgroup" style={{ marginBottom: 14 }}>
+            <span className="lbl">Worker's PayPal email</span>
+            <input type="email" value={payee ?? job.workerEmail} onChange={(e) => setPayee(e.target.value)} name="workerEmail" />
+          </label>
+          <button className="btn primary" onClick={() => run('Retrying payout…', () => api.retryPayout(job.id, payee ?? job.workerEmail), (v) => v.job.status === 'payout_failed' ? 'Still failing, see the note.' : 'Payout sent.')}>Retry payout</button>
         </section>
       );
 
@@ -167,7 +180,7 @@ function ActionCard({ view, busy, run }: { view: JobView; busy: string | null; r
     case 'refunded':
       return (
         <section className="card shadow" aria-label="Result">
-          <header><h2>{job.status === 'paid' ? 'Work verified. Worker paid.' : job.status === 'settled' ? 'Dispute settled' : 'Hold released. Client keeps the money.'}</h2></header>
+          <header><h2>{job.status === 'paid' ? (job.payoutStatus && job.payoutStatus !== 'SUCCESS' ? 'Work verified. Payout in progress.' : 'Work verified. Worker paid.') : job.status === 'settled' ? 'Dispute settled' : 'Hold released. Client keeps the money.'}</h2></header>
           <p className="muted">
             {job.status === 'paid' && `All checks passed, PayPal captured ${usd(job.amount.value)} and paid the worker automatically.`}
             {job.status === 'settled' && `Worker received ${usd(job.settlement!.workerAmount.value)}; ${usd(job.settlement!.clientAmount.value)} was released back to the client.`}

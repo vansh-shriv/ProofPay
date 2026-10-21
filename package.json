@@ -22,7 +22,8 @@
     "demo": "npm run build && npm start",
     "e2e": "playwright test",
     "live-vision": "tsx scripts/live-vision.ts",
-    "secrets": "tsx scripts/check-secrets.ts"
+    "secrets": "tsx scripts/check-secrets.ts",
+    "check:live": "tsx scripts/check-live.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.6",
@@ -44,5 +45,21 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vansh-shriv/ProofPay.git"
+  },
+  "homepage": "https://proofpay-kjpo.onrender.com",
+  "bugs": {
+    "url": "https://github.com/vansh-shriv/ProofPay/issues"
+  },
+  "keywords": [
+    "paypal",
+    "ai-agents",
+    "agentic-commerce",
+    "escrow",
+    "payments",
+    "hackathon"
+  ]
 }
