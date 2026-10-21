@@ -1,4 +1,5 @@
 import type { ZodType } from 'zod';
+import type { ImageInput } from './types';
 
 export interface GeminiOptions {
   apiKey: string;
@@ -20,10 +21,10 @@ export class GeminiClient {
     this.sleep = o.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   }
 
-  async json<T>(system: string, prompt: string, schema: ZodType<T>, temperature = 0.2): Promise<T> {
+  async json<T>(system: string, prompt: string, schema: ZodType<T>, temperature = 0.2, images: ImageInput[] = []): Promise<T> {
     let lastProblem = '';
     for (let attempt = 0; attempt < 2; attempt++) {
-      const text = await this.generate(system, attempt === 0 ? prompt : `${prompt}\n\nYour previous reply was invalid: ${lastProblem}\nReturn ONLY corrected JSON.`, temperature);
+      const text = await this.generate(system, attempt === 0 ? prompt : `${prompt}\n\nYour previous reply was invalid: ${lastProblem}\nReturn ONLY corrected JSON.`, temperature, images);
       let parsed: unknown;
       try {
         parsed = JSON.parse(stripFences(text));
@@ -39,11 +40,11 @@ export class GeminiClient {
   }
 
   /** Try each model in order; within a model retry transient failures with backoff. */
-  private async generate(system: string, prompt: string, temperature: number): Promise<string> {
+  private async generate(system: string, prompt: string, temperature: number, images: ImageInput[]): Promise<string> {
     const models = this.o.model.split(',').map((m) => m.trim()).filter(Boolean);
     let lastError = 'no models configured';
     for (const model of models) {
-      const r = await this.tryModel(model, system, prompt, temperature);
+      const r = await this.tryModel(model, system, prompt, temperature, images);
       if (r.ok) return r.text;
       lastError = `${model}: ${r.error}`;
       if (!r.next) break; // non-retryable (bad request / bad key): other models won't help
@@ -51,7 +52,7 @@ export class GeminiClient {
     throw new Error(`Gemini failed on all models (${lastError})`);
   }
 
-  private async tryModel(model: string, system: string, prompt: string, temperature: number):
+  private async tryModel(model: string, system: string, prompt: string, temperature: number, images: ImageInput[]):
     Promise<{ ok: true; text: string } | { ok: false; error: string; next: boolean }> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     let delay = 1500;
@@ -68,7 +69,7 @@ export class GeminiClient {
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.o.apiKey },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            contents: [{ role: 'user', parts: [...images.map((i) => ({ inlineData: { mimeType: i.mimeType, data: i.data } })), { text: prompt }] }],
             generationConfig: { responseMimeType: 'application/json', temperature },
           }),
           signal: AbortSignal.timeout(this.o.timeoutMs ?? 45_000),

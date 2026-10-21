@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Footer, Rail, Topbar, type PageKey } from './components/Chrome';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Footer, Sidebar, Topbar, type PageKey } from './components/Chrome';
 import { Home } from './components/Home';
 import { JobPage } from './components/JobPage';
 import { PolicyPage } from './components/PolicyPage';
-import { DataProvider } from './data';
+import { DataProvider, useApp } from './data';
+import { ThemeProvider } from './theme';
 import { Icon, ToastProvider } from './ui';
 
 // AG Grid is large: load it only when the Ledger is opened.
@@ -20,44 +21,60 @@ function useRoute() {
   return { path: path || '/', query: new URLSearchParams(query) };
 }
 
-export function App() {
+function Shell() {
   const { path, query } = useRoute();
-  const panel = useRef<HTMLDivElement>(null);
+  const { health } = useApp();
   const [showTop, setShowTop] = useState(false);
+  // The sidebar can slide away; the choice is remembered.
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('proofpay-sidebar') === 'collapsed'; } catch { return false; }
+  });
+  const toggleSide = () => setCollapsed((c) => {
+    const next = !c;
+    try { localStorage.setItem('proofpay-sidebar', next ? 'collapsed' : 'open'); } catch { /* not persisted in private mode */ }
+    return next;
+  });
 
   const jobId = path.match(/^\/jobs\/([\w-]+)$/)?.[1];
   const page: PageKey = jobId ? 'job' : path === '/ledger' ? 'ledger' : path === '/policy' ? 'policy' : 'overview';
+  const mode = health?.payments === 'paypal' ? 'PayPal sandbox (test money only)' : 'Built-in PayPal simulator';
 
-  // New page: back to the top (the panel scrolls on desktop, the document on mobile).
+  useEffect(() => { window.scrollTo(0, 0); }, [path]);
   useEffect(() => {
-    panel.current?.scrollTo({ top: 0 });
-    window.scrollTo(0, 0);
-  }, [path]);
+    const on = () => setShowTop(window.scrollY > 480);
+    on();
+    addEventListener('scroll', on, { passive: true });
+    return () => removeEventListener('scroll', on);
+  }, []);
 
   return (
-    <ToastProvider>
-      <DataProvider>
-        <div className="shell">
-          <div className="frame">
-            <Rail page={page} />
-            <div className="panel" ref={panel} onScroll={(e) => setShowTop(e.currentTarget.scrollTop > 420)}>
-              <div className="panel-in">
-                <Topbar page={page} />
-                <div className="content">
-                  {jobId ? <JobPage key={jobId} id={jobId} error={query.get('error') ?? undefined} />
-                    : page === 'ledger' ? <Suspense fallback={<div className="card empty">Loading ledger…</div>}><Ledger /></Suspense>
-                    : page === 'policy' ? <PolicyPage />
-                    : <Home />}
-                </div>
-                <Footer />
-                <button className={`totop${showTop ? ' show' : ''}`} aria-label="Back to top" tabIndex={showTop ? 0 : -1} onClick={() => panel.current?.scrollTo({ top: 0, behavior: 'smooth' })}>
-                  <Icon name="up" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </DataProvider>
-    </ToastProvider>
+    <div className={`app${collapsed ? ' collapsed' : ''}`}>
+      <Sidebar page={page} mode={health ? mode : undefined} collapsed={collapsed} onToggle={toggleSide} />
+      <div className="main">
+        <Topbar page={page} collapsed={collapsed} onToggle={toggleSide} />
+        <main className={`body${page === 'overview' ? ' rail' : ''}`}>
+          {jobId ? <JobPage key={jobId} id={jobId} error={query.get('error') ?? undefined} />
+            : page === 'ledger' ? <Suspense fallback={<div className="card empty">Loading ledger…</div>}><Ledger /></Suspense>
+            : page === 'policy' ? <PolicyPage />
+            : <Home />}
+        </main>
+        <Footer mode={mode} />
+      </div>
+      <button className={`totop${showTop ? ' show' : ''}`} aria-label="Back to top" tabIndex={showTop ? 0 : -1} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+        <Icon name="up" />
+      </button>
+    </div>
+  );
+}
+
+export function App() {
+  return (
+    <ThemeProvider>
+      <ToastProvider>
+        <DataProvider>
+          <Shell />
+        </DataProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

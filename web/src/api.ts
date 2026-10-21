@@ -3,6 +3,8 @@ import type { Policy } from '../../server/src/core/policy';
 
 export type { Job, AuditEvent, JobStatus, Policy };
 export interface JobView { job: Job; events: AuditEvent[] }
+/** An image attached to the job description, already compressed in the browser. */
+export interface UploadImage { name: string; type: string; data: string }
 export interface Health { ok: boolean; payments: 'paypal' | 'mock'; llm: string }
 
 export class ApiError extends Error {
@@ -30,7 +32,7 @@ export const api = {
   jobs: () => call<{ jobs: Job[] }>('GET', '/api/jobs').then((r) => r.jobs),
   events: () => call<{ events: AuditEvent[] }>('GET', '/api/events').then((r) => r.events),
   job: (id: string) => call<JobView>('GET', `/api/jobs/${id}`),
-  createJob: (request: string, amount: string) => call<JobView>('POST', '/api/jobs', { request, amount }),
+  createJob: (request: string, amount: string, attachments: UploadImage[] = []) => call<JobView>('POST', '/api/jobs', { request, amount, attachments }),
   approve: (id: string) => call<JobView>('POST', `/api/jobs/${id}/approve`),
   autoWork: (id: string, sloppy: boolean) => call<JobView>('POST', `/api/jobs/${id}/auto-work`, { sloppy }),
   submit: (id: string, deliverable: string) => call<JobView>('POST', `/api/jobs/${id}/submit`, { deliverable }),

@@ -1,4 +1,4 @@
-import { ContractSchema, type AI, type Contract, type DisputeInput, type RubricScores, type Ruling, type WorkOptions } from './types';
+import { ContractSchema, type AI, type Contract, type DisputeInput, type ImageInput, type RubricScores, type Ruling, type WorkOptions } from './types';
 
 const INJECTION = /ignore (all )?(previous|prior|above)|disregard .*instructions|give (me )?(full|10|top) (marks|score)|score (me )?10|rule in my favou?r/i;
 
@@ -52,7 +52,7 @@ const TEMPLATES: Template[] = [
 export class MockAI implements AI {
   readonly name = 'mock';
 
-  async buildContract(request: string): Promise<Contract> {
+  async buildContract(request: string, _images?: ImageInput[]): Promise<Contract> {
     const t = TEMPLATES.find((x) => x.match.test(request));
     if (t) {
       return ContractSchema.parse({

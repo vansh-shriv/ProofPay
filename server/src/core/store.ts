@@ -1,7 +1,8 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { Contract, Ruling, Verdict } from '../ai/types';
+import type { Contract, ImageInput, Ruling, Verdict } from '../ai/types';
+import type { ValidImage } from '../attachments';
 import type { Money } from '../money';
 import { DEFAULT_POLICY, PolicySchema, type Policy } from './policy';
 
@@ -37,6 +38,8 @@ export interface Job {
   payoutBatchId?: string;
   /** Last known PayPal payout batch status (PENDING / PROCESSING / SUCCESS ...). */
   payoutStatus?: string;
+  /** Reference images attached to the description (bytes live in the attachments table). */
+  attachments?: { idx: number; name: string; type: string; size: number }[];
   ruling?: Ruling;
   pendingRuling?: Ruling;
   settlement?: { outcome: 'paid' | 'split' | 'refunded'; workerAmount: Money; clientAmount: Money };
@@ -65,6 +68,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, ts TEXT NOT NULL, type TEXT NOT NULL, actor TEXT NOT NULL, data TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS events_job ON events(job_id);
       CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS attachments (job_id TEXT NOT NULL, idx INTEGER NOT NULL, name TEXT NOT NULL, mime TEXT NOT NULL, data BLOB NOT NULL, PRIMARY KEY (job_id, idx));
     `);
   }
 
@@ -113,6 +117,21 @@ export class Store {
 
   setPolicy(p: Policy) {
     this.db.prepare("INSERT INTO kv (k, v) VALUES ('policy', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").run(JSON.stringify(p));
+  }
+
+  saveAttachments(jobId: string, images: ValidImage[]) {
+    const ins = this.db.prepare('INSERT OR REPLACE INTO attachments (job_id, idx, name, mime, data) VALUES (?, ?, ?, ?, ?)');
+    images.forEach((im, idx) => ins.run(jobId, idx, im.name, im.mime, im.bytes));
+  }
+
+  getAttachment(jobId: string, idx: number): { name: string; mime: string; data: Buffer } | undefined {
+    const r = this.db.prepare('SELECT name, mime, data FROM attachments WHERE job_id = ? AND idx = ?').get(jobId, idx) as { name: string; mime: string; data: Uint8Array } | undefined;
+    return r ? { name: r.name, mime: r.mime, data: Buffer.from(r.data) } : undefined;
+  }
+
+  getAttachmentImages(jobId: string): ImageInput[] {
+    const rows = this.db.prepare('SELECT mime, data FROM attachments WHERE job_id = ? ORDER BY idx').all(jobId) as { mime: string; data: Uint8Array }[];
+    return rows.map((r) => ({ mimeType: r.mime, data: Buffer.from(r.data).toString('base64') }));
   }
 
   close() {

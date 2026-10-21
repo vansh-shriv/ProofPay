@@ -71,9 +71,16 @@ export interface DisputeInput {
 }
 
 /** The three AI skills ProofPay needs. Implemented by Gemini and by an offline mock. */
+/** An image the client attached to the job description (base64, no data: prefix). */
+export interface ImageInput {
+  mimeType: string;
+  data: string;
+}
+
 export interface AI {
   readonly name: string;
-  buildContract(request: string): Promise<Contract>;
+  /** `images` are reference screenshots/mockups the client attached; multimodal models can look at them. */
+  buildContract(request: string, images?: ImageInput[]): Promise<Contract>;
   /** Score a rubric deliverable. The deliverable is UNTRUSTED data, never instructions. */
   judgeRubric(contract: Contract, deliverable: string): Promise<RubricScores>;
   arbitrate(input: DisputeInput): Promise<Ruling>;
@@ -84,6 +91,8 @@ export interface AI {
 export interface WorkOptions {
   /** Verifier feedback from the previous failed attempt. */
   feedback?: string;
+  /** Reference images attached to the job. */
+  images?: ImageInput[];
   /** Deliberately produce a naive first draft (demo: shows the fail -> feedback -> fix loop). */
   sloppy?: boolean;
 }

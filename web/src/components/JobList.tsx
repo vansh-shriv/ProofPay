@@ -7,17 +7,24 @@ import { Icon, StatusBadge } from '../ui';
 function Row({ job }: { job: Job }) {
   return (
     <a className="jobrow" href={`#/jobs/${job.id}`}>
-      <span className="tile" aria-hidden="true">{job.contract.kind === 'code' ? '</>' : 'Aa'}</span>
-      <div style={{ minWidth: 0 }}>
-        <div className="t">{job.contract.title}</div>
-        <div className="faint">{job.contract.kind === 'code' ? 'Code · tested' : 'Writing · reviewed'} · #{shortId(job.id)} · {timeAgo(job.createdAt)}</div>
+      <div className="name">
+        <span className="tile" aria-hidden="true">{job.contract.kind === 'code' ? '</>' : 'Aa'}</span>
+        <div style={{ minWidth: 0 }}>
+          <div className="t">{job.contract.title}</div>
+          <div className="faint">{job.contract.kind === 'code' ? 'Code · tested' : 'Writing · reviewed'} · #{shortId(job.id)}</div>
+        </div>
       </div>
-      <StatusBadge status={job.status} />
+      <span><StatusBadge status={job.status} /></span>
       <span className="amt">{usd(job.amount.value, job.amount.currency)}</span>
+      <span className="when">{timeAgo(job.createdAt)}</span>
       <span className="chev"><Icon name="chev" /></span>
     </a>
   );
 }
+
+const Head = () => (
+  <div className="thead" aria-hidden="true"><span>Job</span><span>Status</span><span>Amount</span><span style={{ textAlign: 'right' }}>Created</span><span /></div>
+);
 
 type Filter = 'all' | 'attention' | 'open' | 'done';
 const isDone = (j: Job) => ['paid', 'settled', 'refunded', 'rejected'].includes(j.status);
@@ -37,7 +44,7 @@ export function JobList({ jobs }: { jobs: Job[] }) {
       {attention.length > 0 && filter === 'all' && (
         <section className="attn" id="attention" aria-label="Needs your attention">
           <h2>Needs your attention ({attention.length})</h2>
-          <div className="jobs">{attention.map((j) => <Row key={j.id} job={j} />)}</div>
+          <div>{attention.map((j) => <Row key={j.id} job={j} />)}</div>
         </section>
       )}
       <section aria-label="Jobs">
@@ -48,9 +55,9 @@ export function JobList({ jobs }: { jobs: Job[] }) {
           </div>
         </div>
         {list.length === 0 ? (
-          <div className="card soft empty">{jobs.length === 0 ? 'No jobs yet. Post your first one on the right.' : 'Nothing matches.'}</div>
+          <div className="card soft empty">{jobs.length === 0 ? 'No jobs yet. Post your first one above.' : 'Nothing matches.'}</div>
         ) : (
-          <div className="jobs">{list.map((j) => <Row key={j.id} job={j} />)}</div>
+          <div className="table"><Head />{list.map((j) => <Row key={j.id} job={j} />)}</div>
         )}
       </section>
     </div>

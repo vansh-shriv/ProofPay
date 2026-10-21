@@ -4,6 +4,7 @@ import type { JobService } from './core/jobs';
 import { PolicyError, StateError } from './core/jobs';
 import { PolicySchema } from './core/policy';
 import type { Store } from './core/store';
+import { AttachmentError, validateAttachments } from './attachments';
 import { money } from './money';
 import { MockPaymentProvider } from './payments/mock';
 import { PaymentError, type PaymentProvider } from './payments/types';
@@ -13,6 +14,7 @@ const CreateJob = z.object({
   amount: z.union([z.string(), z.number()]).transform((v) => String(v)).pipe(z.string().regex(/^\d+(\.\d{1,2})?$/, 'must be a positive amount with at most 2 decimals')),
   currency: z.string().length(3).default('USD'),
   workerEmail: z.string().email().optional(),
+  attachments: z.array(z.object({ name: z.string().max(200).default(''), type: z.string().max(40), data: z.string().max(4_000_000) })).max(3).optional(),
 });
 const Submit = z.object({ deliverable: z.string().min(1).max(25_000) });
 const Dispute = z.object({ clientClaim: z.string().trim().min(3).max(2000), workerClaim: z.string().trim().min(3).max(2000) });
@@ -47,6 +49,7 @@ export function registerRoutes(app: FastifyInstance, d: RouteDeps) {
     if (err instanceof z.ZodError) {
       return reply.code(400).send({ error: 'Invalid input', issues: err.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
     }
+    if (err instanceof AttachmentError) return reply.code(400).send({ error: err.message });
     if (err instanceof PolicyError) return reply.code(403).send({ error: err.message, job: (err as any).job });
     if (err instanceof StateError) return reply.code(err.message === 'Job not found' ? 404 : 409).send({ error: err.message });
     if (err instanceof PaymentError) {
@@ -68,11 +71,26 @@ export function registerRoutes(app: FastifyInstance, d: RouteDeps) {
   app.get('/api/jobs/:id', async (req) => freshView((req.params as any).id));
   app.get('/api/events', async () => ({ events: d.store.events() }));
 
-  app.post('/api/jobs', async (req, reply) => {
+  // Larger body limit than the rest of the API: a job may carry up to 3 compressed reference images.
+  app.post('/api/jobs', { bodyLimit: 9 * 1024 * 1024 }, async (req, reply) => {
     if (!limit(req, reply)) return;
     const b = CreateJob.parse(req.body);
-    const job = await d.jobs.createJob({ request: b.request, amount: money(b.amount, b.currency.toUpperCase()), workerEmail: b.workerEmail });
+    const attachments = validateAttachments(b.attachments);
+    const job = await d.jobs.createJob({ request: b.request, amount: money(b.amount, b.currency.toUpperCase()), workerEmail: b.workerEmail, attachments });
     return reply.code(201).send(view(job.id));
+  });
+
+  // Reference images. Served inline with a locked-down policy so an uploaded file can never run as a page.
+  app.get('/api/jobs/:id/attachments/:idx', async (req, reply) => {
+    const { id, idx } = req.params as { id: string; idx: string };
+    const a = /^\d+$/.test(idx) ? d.store.getAttachment(id, Number(idx)) : undefined;
+    if (!a) return reply.code(404).send({ error: 'Not found' });
+    return reply
+      .header('Content-Type', a.mime)
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'")
+      .header('Cache-Control', 'private, max-age=3600')
+      .send(a.data);
   });
 
   app.post('/api/jobs/:id/approve', async (req) => view((await d.jobs.approveJob((req.params as any).id)).id));

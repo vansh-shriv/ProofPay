@@ -1,16 +1,49 @@
-import { totals, usd } from '../format';
+import { useEffect, useState } from 'react';
+import { api, type Policy } from '../api';
 import { useApp } from '../data';
+import { totals, usd } from '../format';
 import { Icon, type IconName } from '../ui';
 import { Hero } from './Hero';
 import { JobList } from './JobList';
 import { NewJob } from './NewJob';
 
-function Stat({ tone, icon, label, value, sub }: { tone: string; icon: IconName; label: string; value: string; sub: string }) {
+function Bal({ tone, icon, label, value }: { tone: string; icon: IconName; label: string; value: string }) {
   return (
-    <div className={`stat ${tone}`}>
-      <div className="top"><span>{label}</span><span className="ico"><Icon name={icon} /></span></div>
-      <div><div className="value">{value}</div><div className="sub">{sub}</div></div>
+    <div className={`bal ${tone}`}>
+      <span className="sq"><Icon name={icon} /></span>
+      <div><div className="l">{label}</div><div className="v">{value}</div></div>
     </div>
+  );
+}
+
+function RightRail() {
+  const { jobs } = useApp();
+  const t = totals(jobs ?? []);
+  const [policy, setPolicy] = useState<Policy | null>(null);
+  useEffect(() => { api.policy().then(setPolicy).catch(() => setPolicy(null)); }, []);
+  return (
+    <aside className="rightrail" aria-label="Money at a glance">
+      <section className="rail-card">
+        <h3>Money at a glance</h3>
+        <div className="bal-grid">
+          <Bal tone="held" icon="lock" label="Held by PayPal" value={usd(t.held)} />
+          <Bal tone="paid" icon="wallet" label="Paid to workers" value={usd(t.paidOut)} />
+          <Bal tone="ret" icon="undo" label="Returned to clients" value={usd(t.returned)} />
+          <Bal tone="cnt" icon="file" label="Contracts" value={String(t.jobs)} />
+        </div>
+      </section>
+      {policy && (
+        <section className="rail-card fill">
+          <h3>Spending guardrails</h3>
+          <dl className="limits">
+            <div><dt>Auto-approve up to</dt><dd>{usd(policy.autoApproveMaxCents)}</dd></div>
+            <div><dt>Hard limit per job</dt><dd>{usd(policy.hardMaxCents)}</dd></div>
+            <div><dt>Daily budget</dt><dd>{usd(policy.dailyBudgetCents)}</dd></div>
+          </dl>
+          <a className="linkbtn" href="#/policy">Edit policy<Icon name="arrow" /></a>
+        </section>
+      )}
+    </aside>
   );
 }
 
@@ -23,30 +56,22 @@ const STEPS = [
 
 export function Home() {
   const { jobs, reload } = useApp();
-  const t = totals(jobs ?? []);
   return (
     <>
-      <Hero />
+      <div className="span"><Hero /></div>
 
-      <section className="stats" aria-label="Totals">
-        <Stat tone="sky" icon="lock" label="Held by PayPal" value={usd(t.held)} sub="authorized, not yet charged" />
-        <Stat tone="mint" icon="wallet" label="Paid to workers" value={usd(t.paidOut)} sub="released after verification" />
-        <Stat tone="butter" icon="undo" label="Returned to clients" value={usd(t.returned)} sub="refunds and unused holds" />
-        <Stat tone="lav" icon="file" label="Contracts" value={String(t.jobs)} sub="created so far" />
-      </section>
-
-      <div className="cols">
-        {jobs ? <JobList jobs={jobs} /> : <div className="card empty">Loading…</div>}
+      <div className="col">
         <NewJob onCreated={(id) => { reload(); location.hash = `#/jobs/${id}`; }} />
       </div>
+      <RightRail />
 
-      <section id="how" aria-label="How it works">
+      <div className="span">{jobs ? <JobList jobs={jobs} /> : <div className="card empty">Loading…</div>}</div>
+
+      <section id="how" className="span" aria-label="How it works">
         <div className="section-h"><h2>How ProofPay works</h2></div>
-        <div className="how">
-          {STEPS.map(([title, text], i) => (
-            <div key={title}><span className="n">{i + 1}</span><b>{title}</b><p>{text}</p></div>
-          ))}
-        </div>
+        <ol className="how">
+          {STEPS.map(([title, text], i) => <li key={title}><span className="n">{i + 1}</span><b>{title}</b><p>{text}</p></li>)}
+        </ol>
       </section>
     </>
   );

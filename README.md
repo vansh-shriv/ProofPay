@@ -29,6 +29,11 @@ Try it: pick an example, **Create contract**, **Hold with PayPal**, then **Hire 
 ## Real PayPal sandbox + Gemini
 See [docs/SETUP-paypal-gemini.md](docs/SETUP-paypal-gemini.md), then set `PAYMENTS_MODE=paypal` and `LLM_PROVIDER=gemini` in `.env`.
 
+## Describing a job: text, voice, images
+- **Type it**, **dictate it** (Voice button: the browser's built-in speech recognition, Chrome/Edge/Safari), or **attach up to 3 images** (button, paste or drag-and-drop).
+- Images are shrunk in the browser (max 1280px JPEG), validated on the server (real PNG/JPEG/WebP/GIF by file signature, size caps, no SVG), stored with the job and served with locked-down headers.
+- With Gemini the model actually **looks at the images** when it writes the acceptance criteria, and the worker agent sees them too (verified live with `npm run live-vision`). The offline mock AI ignores images.
+
 ## What is real and what is simulated
 | | Default (`.env.example`) | Real mode |
 |---|---|---|
@@ -49,6 +54,7 @@ hold -> verify -> capture -> payout, see [docs/04-test-report.md](docs/04-test-r
 Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free tier has an ephemeral disk, so data resets on redeploy.
 
 ## Known limits (honest)
+- Voice dictation uses the browser's speech service; in Chrome the audio is processed by the browser vendor, not by ProofPay. Unsupported browsers see the button disabled.
 - PayPal authorizations expire (honor period about 3 days, valid up to 29 days): this is *escrow-like*, not legal escrow.
 - No user accounts: anyone with the link can use the demo. It is rate-limited and sandbox-only.
 - Test cases are visible to the worker. Hidden test sets are on the roadmap.
@@ -58,18 +64,19 @@ Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free ti
 |---|---|
 | `npm run demo` | build UI + start server |
 | `npm run dev` / `npm run dev:web` | API with reload / Vite dev server (proxies to the API) |
-| `npm test` | 72 unit + integration tests |
-| `npm run e2e` | 11 real-browser tests (Playwright + Chrome), also regenerates `docs/screenshots/` |
+| `npm test` | 85 unit + integration tests |
+| `npm run e2e` | 29 real-browser tests (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
 | `npm run doctor` | checks your `.env`, PayPal and Gemini connectivity |
 | `npm run smoke` | sends a $1 sandbox payout |
 | `npm run live-ai` | exercises the real Gemini prompts |
+| `npm run live-vision` | proves real Gemini reads an attached image |
 | `npm run e2e:live` | full real flow with a real PayPal approval click |
 
 ## Screenshots
 | | |
 |---|---|
-| ![Home](docs/screenshots/01-home.png) | ![Paid](docs/screenshots/05-paid.png) |
-| ![Dispute](docs/screenshots/06-dispute-settled.png) | ![Ledger](docs/screenshots/10-ledger-audit.png) |
+| ![Overview, light](docs/screenshots/01-home.png) | ![Overview, dark](docs/screenshots/13-home-dark.png) |
+| ![Paid](docs/screenshots/05-paid.png) | ![Ledger, dark](docs/screenshots/15-ledger-dark.png) |
 
 ## Docs
 - [00 Hackathon brief](docs/00-hackathon-brief.md) · [01 Plan](docs/01-plan.md) · [02 Architecture](docs/02-architecture.md)

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AI, Ruling } from '../ai/types';
+import { toImageInputs, type ValidImage } from '../attachments';
 import { splitByBps, toCents, type Money } from '../money';
 import type { PaymentProvider } from '../payments/types';
 import { verify } from '../verify';
@@ -29,21 +30,24 @@ export class JobService {
 
   // ---------- create & fund ----------
 
-  async createJob(input: { request: string; amount: Money; clientId?: string; workerEmail?: string }): Promise<Job> {
+  async createJob(input: { request: string; amount: Money; clientId?: string; workerEmail?: string; attachments?: ValidImage[] }): Promise<Job> {
     const { store, ai } = this.d;
     const amountCents = toCents(input.amount.value);
     if (amountCents < 100) throw new PolicyError('Minimum job amount is 1.00');
     const workerEmail = input.workerEmail?.trim() || this.d.defaultWorkerEmail;
 
     const id = randomUUID();
-    const contract = await ai.buildContract(input.request);
+    const images = input.attachments ?? [];
+    const contract = await ai.buildContract(input.request, toImageInputs(images));
     const now = new Date().toISOString();
     const job: Job = {
       id, createdAt: now, updatedAt: now, request: input.request, clientId: input.clientId ?? 'demo-client',
       workerEmail, amount: input.amount, contract, status: 'awaiting_funds', attempts: 0, verdicts: [],
+      attachments: images.map((im, idx) => ({ idx, name: im.name, type: im.mime, size: im.bytes.length })),
     };
     store.saveJob(job);
-    store.addEvent(id, 'job_created', 'client', { request: input.request, amount: input.amount });
+    if (images.length) store.saveAttachments(id, images);
+    store.addEvent(id, 'job_created', 'client', { request: input.request, amount: input.amount, images: images.length });
     store.addEvent(id, 'contract_built', 'system', { ai: ai.name, kind: contract.kind, title: contract.title, maxAttempts: contract.maxAttempts });
 
     const decision = evaluateNewJob(store.getPolicy(), amountCents, store.spentTodayCents() - amountCents);
@@ -137,7 +141,7 @@ export class JobService {
     const job = this.must(id);
     this.expect(job, 'funded');
     const feedback = job.verdicts.at(-1)?.feedback;
-    const deliverable = await this.d.ai.work(job.contract, { sloppy, feedback });
+    const deliverable = await this.d.ai.work(job.contract, { sloppy, feedback, images: this.d.store.getAttachmentImages(id) });
     this.d.store.addEvent(id, 'worker_agent_drafted', 'worker', { sloppy, usedFeedback: !!feedback, chars: deliverable.length });
     return this.submit(id, deliverable);
   }

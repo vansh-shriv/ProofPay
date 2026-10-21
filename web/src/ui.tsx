@@ -16,6 +16,14 @@ const ICONS = {
   lock: <><rect x="5" y="10.5" width="14" height="10" rx="3" /><path d="M8 10.5V8a4 4 0 018 0v2.5" /></>,
   wallet: <><path d="M4 7.5A2.5 2.5 0 016.5 5H18v3" /><rect x="3.5" y="8" width="17" height="11.5" rx="3" /><circle cx="16.5" cy="13.8" r="1.1" /></>,
   undo: <><path d="M8 8H4V4" /><path d="M4.5 8A8.5 8.5 0 1112 20.5" /></>,
+  sun: <><circle cx="12" cy="12" r="4" /><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" /></>,
+  moon: <path d="M20 14.5A8.5 8.5 0 119.5 4a7 7 0 0010.5 10.5z" />,
+  ext: <><path d="M14 4h6v6" /><path d="M20 4l-9 9" /><path d="M18 14v4a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h4" /></>,
+  home: <path d="M4 11l8-7 8 7v8a2 2 0 01-2 2h-3v-6H9v6H6a2 2 0 01-2-2z" />,
+  mic: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></>,
+  image: <><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="M4 18l5-5 4 4 3-3 4 4" /></>,
+  x: <path d="M6 6l12 12M18 6L6 18" />,
+  panel: <><rect x="3" y="4" width="18" height="16" rx="3.5" /><path d="M9 4v16" /></>,
   file: <><path d="M7 3h7l5 5v11a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>,
 } satisfies Record<string, ReactNode>;
 export type IconName = keyof typeof ICONS;
@@ -28,15 +36,26 @@ export function Icon({ name }: { name: IconName }) {
   );
 }
 
-/** Brand mark: a shield with a check. `dark` = charcoal on a light tile, `light` = cream on a dark tile. */
-export function Logo({ tone = 'dark' }: { tone?: 'dark' | 'light' }) {
-  const fg = tone === 'dark' ? '#1b1b1f' : '#f6efd2';
-  const bg = tone === 'dark' ? '#f6efd2' : '#1b1b1f';
+/** Brand mark: a shield with a check. Uses currentColor; the check is cut out in --stamp-ink. */
+export function Logo({ size }: { size?: number }) {
   return (
-    <svg viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M16 3.5l10 3.7v8.3c0 6-4.2 10.4-10 13-5.8-2.6-10-7-10-13V7.2z" fill={fg} />
-      <path d="M11.2 15.8l3.6 3.6 6.2-7" fill="none" stroke={bg} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden="true">
+      <path d="M16 3.5l10 3.7v8.3c0 6-4.2 10.4-10 13-5.8-2.6-10-7-10-13V7.2z" fill="currentColor" />
+      <path d="M11.2 15.8l3.6 3.6 6.2-7" fill="none" stroke="var(--stamp-ink, #fff)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** Brand lockup: shield tile + "ProofPay" wordmark (+ tagline). */
+export function Brand({ size = 'md', tagline = false }: { size?: 'sm' | 'md' | 'lg'; tagline?: boolean }) {
+  return (
+    <span className={`brandmark ${size}`}>
+      <span className="tile"><Logo /></span>
+      <span className="wm">
+        <span className="wordmark"><b>Proof</b>Pay</span>
+        {tagline && <small>Verified payments</small>}
+      </span>
+    </span>
   );
 }
 

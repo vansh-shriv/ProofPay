@@ -40,6 +40,20 @@ export function ContractCard({ job }: { job: Job }) {
       <p className="muted">{c.summary}</p>
       <p className="small" style={{ marginTop: 10 }}><b>Deliverable:</b> {c.deliverableSpec}</p>
       <p className="small"><b>Attempts allowed:</b> {c.maxAttempts}</p>
+      {job.attachments && job.attachments.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Reference images ({job.attachments.length})</div>
+          <ul className="thumbs ref" aria-label="Reference images">
+            {job.attachments.map((a) => (
+              <li key={a.idx}>
+                <a href={`/api/jobs/${job.id}/attachments/${a.idx}`} target="_blank" rel="noreferrer" title={a.name}>
+                  <img src={`/api/jobs/${job.id}/attachments/${a.idx}`} alt={a.name} loading="lazy" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {c.kind === 'code' && c.code && (
         <details className="more" style={{ marginTop: 10 }}>
           <summary>{c.code.cases.length} acceptance tests for <code>{c.code.functionName}()</code></summary>
@@ -117,7 +131,7 @@ export function MoneyCard({ job }: { job: Job }) {
         {st && <><span className="seg-worker" style={{ width: pctOf(w) }} /><span className="seg-client" style={{ width: pctOf(cl) }} /></>}
       </div>
       <div className="legend">
-        {held && <span><i style={{ background: 'var(--sky)' }} />Held by PayPal - client is not charged yet</span>}
+        {held && <span><i style={{ background: '#e3ae4f' }} />Held by PayPal - client is not charged yet</span>}
         {!held && !st && <span>Nothing is held or charged yet.</span>}
         {st && <span><i className="seg-worker" />Worker {usd(w)}</span>}
         {st && cl > 0 && <span><i className="seg-client" />Back to client {usd(cl)}</span>}

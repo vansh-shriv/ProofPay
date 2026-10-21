@@ -58,7 +58,7 @@ export function PolicyPage() {
       <aside className="money" aria-label="Why guardrails">
         <header><h2>Why guardrails?</h2></header>
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.25 }}>Let an AI agent spend money without losing control.</div>
-        <p style={{ color: '#b7b9c6', fontSize: 14.5 }}>
+        <p className="muted" style={{ fontSize: 14.5 }}>
           Every job is checked against these rules before PayPal is touched. Small jobs flow through on their own. Anything bigger, or any ruling the AI is unsure about, stops and waits for a human. Every decision is written to the audit log.
         </p>
       </aside>

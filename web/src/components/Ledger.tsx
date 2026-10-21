@@ -1,30 +1,19 @@
-import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef } from 'ag-grid-community';
+import { AllCommunityModule, ModuleRegistry, colorSchemeDark, themeQuartz, type ColDef } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api, type AuditEvent, type Job } from '../api';
 import { useApp } from '../data';
 import { describeEvent } from '../events';
 import { STATUS_LABEL, usd } from '../format';
+import { useTheme } from '../theme';
 import { useToast } from '../ui';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-// Grid skinned to match the app: white surface, soft header, charcoal accent, rounded corners.
-const theme = themeQuartz.withParams({
-  accentColor: '#1b1b1f',
-  backgroundColor: '#ffffff',
-  foregroundColor: '#15161a',
-  headerBackgroundColor: '#f6f7fb',
-  headerTextColor: '#53586a',
-  headerFontWeight: 650,
-  borderColor: '#ececf2',
-  rowHoverColor: '#f6f7fb',
-  fontFamily: 'inherit',
-  fontSize: 14,
-  borderRadius: 14,
-  wrapperBorderRadius: 18,
-  spacing: 9,
-});
+// Grid skinned to match the app in both themes (colours mirror the CSS tokens).
+const shared = { fontFamily: 'inherit', fontSize: 14, borderRadius: 10, wrapperBorderRadius: 12, spacing: 9, headerFontWeight: 700 };
+const lightGrid = themeQuartz.withParams({ ...shared, accentColor: '#0c7566', backgroundColor: '#ffffff', foregroundColor: '#14202b', headerBackgroundColor: '#faf9f6', headerTextColor: '#4b5967', borderColor: '#e6e3db', rowHoverColor: '#faf9f6' });
+const darkGrid = themeQuartz.withPart(colorSchemeDark).withParams({ ...shared, accentColor: '#3cc4aa', backgroundColor: '#131a21', foregroundColor: '#e9eff4', headerBackgroundColor: '#10161c', headerTextColor: '#aab7c3', borderColor: '#222c36', rowHoverColor: '#10161c' });
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString();
 const link = { fontWeight: 650, textDecoration: 'underline', textUnderlineOffset: 3 } as const;
@@ -33,6 +22,8 @@ export function Ledger() {
   const [tab, setTab] = useState<'payments' | 'audit'>('payments');
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const { jobs, query } = useApp();
+  const { theme: mode } = useTheme();
+  const theme = mode === 'dark' ? darkGrid : lightGrid;
   const toast = useToast();
 
   useEffect(() => {
