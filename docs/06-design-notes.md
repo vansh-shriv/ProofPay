@@ -79,3 +79,14 @@ not a sample job; and the dark theme felt like generic "AI slop".
 
 ## Round 8: floor shadow removed
 The flat contact-shadow ellipse under the shield could not stay aligned with a rotating 3D object, so it was removed (layer, CSS and SVG ellipse). The shield now floats, defined by its own lit front face and side wall. A test asserts no `.l-shadow` layer or ellipse exists in the brand card.
+
+## Round 9: device-general layout (user feedback: ugly on phones)
+Reported on a phone: mismatched blocks, text out of bounds, "sidebar randomly on the page". Instead of guessing, every page and every job state was loaded at real sizes (320, 375, 412, 768 wide, phone landscape, tablet landscape) and measured.
+**Root causes found**
+- The "random sidebar" was the phone bottom tab bar stuck at the *desktop sidebar's width* (252px) because later desktop rules overrode the earlier mobile rules (CSS cascade order). Its three items need ~380px, so they were clipped, and on a 320px phone they made the page 37px wider than the screen. The bar also still showed the brand block, and a "collapsed sidebar" choice saved on desktop could hide it entirely on a phone.
+- "Create contract" was cut off (same cascade problem on the Budget row); the progress stepper broke into two rows; the drop zone text was cramped; grid columns sized to the longest unwrapped title widened the whole page ("Needs your attention" box at 320px).
+**Fix**
+- One authoritative responsive section **at the end of the stylesheet** (breakpoints 1240 / 1000 / 640 / 380) that resets every desktop sizing rule explicitly; the old scattered mobile rules were removed.
+- Phones/tablets (<=1000px): frosted bottom tab bar, full width, pinned, safe-area aware, always shown (the desktop collapse setting is ignored); floating glass top bar with the search on its own row; brand card shown centred under the hero; single-column pages; compact 4-step stepper; stacked job cards; full-width action buttons; scrollable filter chips; bounded grid columns.
+- Touch: 40-44px tap targets on coarse pointers, 16px form fields (no iOS zoom on focus), `viewport-fit=cover`, toasts and back-to-top lifted above the bar.
+**Regression tests** (`e2e/responsive.spec.ts`, 17): all pages and job states at 6 screen sizes have no horizontal overflow, no out-of-bounds elements, no clipped text, no small tap targets; the bottom bar is full width, pinned and unmoved while scrolling and never covers the footer; the saved-collapse case; 1024 landscape keeps the sidebar; the smallest phone can create a contract by touch; search is reachable; dark mode fits.

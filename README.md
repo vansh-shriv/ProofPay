@@ -67,7 +67,7 @@ Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free ti
 | `npm run demo` | build UI + start server |
 | `npm run dev` / `npm run dev:web` | API with reload / Vite dev server (proxies to the API) |
 | `npm test` | 98 unit + integration tests |
-| `npm run e2e` | 31 real-browser tests (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
+| `npm run e2e` | 48 real-browser tests (incl. 17 phone/tablet layout checks) (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
 | `npm run check:github` | verifies the public repo meets the submission rules (About box, docs, screenshots, workflow, live site) |
 | `npm run secrets` | pre-push check: none of your `.env` secrets appear in the repo |
 | `npm run doctor` | checks your `.env`, PayPal and Gemini connectivity |

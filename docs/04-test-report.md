@@ -108,3 +108,8 @@ No browser console errors or CSP violations on the live site.
 `tests/payout-recovery.test.ts`: payout accepted then denied -> job flips to payout_failed with reason + hint (no duplicate events); corrected email -> fresh id `<job>-r1` -> paid -> SUCCESS;
 retry refused while previous payout is pending/succeeded; retry that never reached PayPal reuses the id; PayPal client maps a failed item to FAILED + "NAME: message".
 Browser: denial appears on its own (polling), human corrects the email, ends Paid with an audit entry.
+
+## Device-general layout - 2026-10-21 (98 unit/integration + 48 browser tests, all pass)
+`e2e/responsive.spec.ts` (17 tests): 9 pages/states x 6 sizes (320, 375, 412, phone landscape, 768, 1024 landscape) measured for page overflow, out-of-bounds elements, clipped text and small tap targets (all zero);
+bottom navigation full width / pinned / stable while scrolling / not covering the footer / saved-desktop-collapse ignored; 1024 landscape keeps the sidebar; 320px touch flow creates a contract; search reachable; iOS-zoom-safe 16px fields; dark mode fits.
+The first audit found the real bugs (nav bar at 252px, clipped controls, 21-37px page overflow); all fixed.

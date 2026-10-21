@@ -21,6 +21,19 @@ function useRoute() {
   return { path: path || '/', query: new URLSearchParams(query) };
 }
 
+/** True on screens wide enough for the sidebar layout (matches the CSS breakpoint). */
+function useDesktop() {
+  const q = '(min-width: 1001px)';
+  const [d, setD] = useState(() => matchMedia(q).matches);
+  useEffect(() => {
+    const m = matchMedia(q);
+    const on = () => setD(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return d;
+}
+
 function Shell() {
   const { path, query } = useRoute();
   const { health } = useApp();
@@ -29,6 +42,8 @@ function Shell() {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('proofpay-sidebar') === 'collapsed'; } catch { return false; }
   });
+  const desktop = useDesktop();
+  const sideCollapsed = collapsed && desktop; // on phones/tablets the tab bar is always shown
   const toggleSide = () => setCollapsed((c) => {
     const next = !c;
     try { localStorage.setItem('proofpay-sidebar', next ? 'collapsed' : 'open'); } catch { /* not persisted in private mode */ }
@@ -48,10 +63,10 @@ function Shell() {
   }, []);
 
   return (
-    <div className={`app${collapsed ? ' collapsed' : ''}`}>
-      <Sidebar page={page} mode={health ? mode : undefined} collapsed={collapsed} onToggle={toggleSide} />
+    <div className={`app${sideCollapsed ? ' collapsed' : ''}`}>
+      <Sidebar page={page} mode={health ? mode : undefined} collapsed={sideCollapsed} onToggle={toggleSide} />
       <div className="main">
-        <Topbar page={page} collapsed={collapsed} onToggle={toggleSide} />
+        <Topbar page={page} collapsed={sideCollapsed} onToggle={toggleSide} />
         <main className={`body${page === 'overview' ? ' rail' : ''}`}>
           {jobId ? <JobPage key={jobId} id={jobId} error={query.get('error') ?? undefined} />
             : page === 'ledger' ? <Suspense fallback={<div className="card empty">Loading ledger…</div>}><Ledger /></Suspense>

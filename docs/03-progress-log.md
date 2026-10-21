@@ -98,3 +98,6 @@
 ## 2026-10-21 - Keep-alive + repo readiness checker
 - `.github/workflows/keep-alive.yml`: pings the live health endpoint every 5 minutes with retries; the run fails (GitHub emails the owner) if the site is down. Script tested locally in both paths (healthy -> exit 0; dead URL -> exit 1).
 - `npm run check:github`: reads GitHub's public data and checks the submission rules (public, MIT, About description/topics/website, docs + README screenshots published, nothing private published, workflow running, live site in sandbox mode). Baseline before the push: About box and docs/workflow still to do.
+
+## 2026-10-21 - Mobile/tablet layout fixed
+- Audited 9 pages/states x 4-6 screen sizes with real measurements; root causes and fix in `docs/06-design-notes.md` (Round 9). 17 new responsive tests; 98 unit + 48 browser tests pass.
