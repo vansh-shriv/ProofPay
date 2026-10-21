@@ -8,4 +8,15 @@ data/
 playwright-report/
 test-results/
 .DS_Store
-docs
+
+# Documentation is published, except third-party material and local-only notes
+docs/design_refrence/
+docs/rules.txt
+docs/resources.txt
+docs/bugs/
+# the browser tests regenerate every screenshot; only the ones the README shows are tracked
+docs/screenshots/*
+!docs/screenshots/01-home.png
+!docs/screenshots/05-paid.png
+!docs/screenshots/13-home-dark.png
+!docs/screenshots/15-ledger-dark.png

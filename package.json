@@ -23,7 +23,8 @@
     "e2e": "playwright test",
     "live-vision": "tsx scripts/live-vision.ts",
     "secrets": "tsx scripts/check-secrets.ts",
-    "check:live": "tsx scripts/check-live.ts"
+    "check:live": "tsx scripts/check-live.ts",
+    "check:github": "tsx scripts/check-github.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.6",

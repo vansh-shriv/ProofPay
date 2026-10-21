@@ -1,0 +1,43 @@
+# Keeps the free Render service awake and doubles as a health monitor.
+# Render's free tier sleeps after ~15 minutes without traffic (a visitor would then wait 30-60 s for the first load).
+# This pings /api/health every 5 minutes. If the site is down the run FAILS and GitHub emails the repo owner.
+#
+# Notes
+#  - GitHub runs scheduled workflows on the default branch only, on a best-effort basis (a run can start a few minutes late).
+#  - GitHub pauses scheduled workflows after 60 days with no repository activity; any push re-enables them.
+#  - To point it elsewhere without editing this file: repo Settings -> Secrets and variables -> Actions -> Variables -> LIVE_URL.
+name: keep-alive
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {} # lets you run it by hand from the Actions tab
+
+permissions: {} # needs no access to the repository
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      LIVE_URL: ${{ vars.LIVE_URL || 'https://proofpay-kjpo.onrender.com' }}
+    steps:
+      - name: Wake and check the live demo
+        run: |
+          set -u
+          # A sleeping instance can take up to ~60 s to answer the first request, so allow long timeouts and retry.
+          for attempt in 1 2 3 4; do
+            code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 90 "$LIVE_URL/api/health" || true)
+            echo "attempt $attempt -> HTTP ${code:-none}"
+            if [ "$code" = "200" ] && grep -q '"ok":true' /tmp/health.json; then
+              echo "healthy: $(cat /tmp/health.json)"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::$LIVE_URL did not become healthy"
+          exit 1
