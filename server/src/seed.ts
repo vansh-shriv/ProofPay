@@ -1,5 +1,5 @@
 import type { JobService } from './core/jobs';
-import type { Store } from './core/store';
+import { SAMPLE_OWNER, type Store } from './core/store';
 import { money } from './money';
 import type { MockPaymentProvider } from './payments/mock';
 
@@ -7,14 +7,14 @@ const GOOD_SUM_EVENS = 'function sumEvens(a){ return a.filter(x => x % 2 === 0).
 const BAD_FIZZ = "function fizzBuzz(n){ const r = []; for (let i = 1; i <= n; i++) r.push(i % 3 === 0 ? 'Fizz' : i % 5 === 0 ? 'Buzz' : String(i)); return r; }";
 
 /**
- * Fills an EMPTY simulator database with a few jobs in different states so first-time visitors
- * (and the Ledger) have something to look at. Never used with real PayPal: its IDs would be fake.
+ * Fills an EMPTY simulator database with a few read-only SAMPLE jobs in different states so first-time visitors
+ * (and the Ledger) have something to look at. Samples belong to no visitor, so everyone can read them and nobody can act on them. Never used with real PayPal: its IDs would be fake.
  */
 export async function seedDemo(jobs: JobService, mock: MockPaymentProvider, store: Store): Promise<boolean> {
   if (store.listJobs().length > 0) return false;
   const usd = (v: string) => money(v);
   const fund = async (request: string, amount: string) => {
-    const j = await jobs.createJob({ request, amount: usd(amount) });
+    const j = await jobs.createJob({ request, amount: usd(amount), clientId: SAMPLE_OWNER });
     mock.approve(j.orderId!);
     return jobs.confirmFunding(j.id, j.orderId);
   };
@@ -32,9 +32,9 @@ export async function seedDemo(jobs: JobService, mock: MockPaymentProvider, stor
   for (let i = 0; i < c.contract.maxAttempts; i++) await jobs.submit(c.id, 'TODO');
 
   // 4. waiting for the client's PayPal approval
-  await jobs.createJob({ request: 'Write a JavaScript function called isPalindrome that ignores case, spaces and punctuation.', amount: usd('45.00') });
+  await jobs.createJob({ request: 'Write a JavaScript function called isPalindrome that ignores case, spaces and punctuation.', amount: usd('45.00'), clientId: SAMPLE_OWNER });
 
   // 5. above the auto-approve limit -> waiting for a human
-  await jobs.createJob({ request: 'Write a JavaScript function called factorial that returns n! for non-negative integers.', amount: usd('300.00') });
+  await jobs.createJob({ request: 'Write a JavaScript function called factorial that returns n! for non-negative integers.', amount: usd('300.00'), clientId: SAMPLE_OWNER });
   return true;
 }

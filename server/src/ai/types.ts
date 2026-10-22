@@ -23,6 +23,8 @@ export const ContractSchema = z
     title: z.string().min(3).max(120),
     summary: z.string().min(3).max(1000),
     kind: z.enum(['code', 'rubric']),
+    /** What the worker hands in. "image" = an uploaded picture file that the AI reviewer LOOKS at (a link or a description is never accepted). */
+    deliverableType: z.enum(['text', 'image']).default('text'),
     deliverableSpec: z.string().min(3).max(1000),
     code: z
       .object({ functionName: z.string().regex(/^[A-Za-z_$][\w$]*$/), cases: z.array(TestCaseSchema).min(2).max(30) })
@@ -32,7 +34,8 @@ export const ContractSchema = z
       .optional(),
     maxAttempts: z.number().int().min(1).max(5).default(3),
   })
-  .refine((c) => (c.kind === 'code' ? !!c.code : !!c.rubric), { message: 'contract body must match kind' });
+  .refine((c) => (c.kind === 'code' ? !!c.code : !!c.rubric), { message: 'contract body must match kind' })
+  .refine((c) => c.deliverableType === 'text' || c.kind === 'rubric', { message: 'an image deliverable needs a rubric contract' });
 export type Contract = z.infer<typeof ContractSchema>;
 
 export const CheckSchema = z.object({ name: z.string(), passed: z.boolean(), detail: z.string() });
@@ -65,6 +68,8 @@ export type RubricScores = z.infer<typeof RubricScoresSchema>;
 export interface DisputeInput {
   contract: Contract;
   deliverable: string;
+  /** The submitted image(s) when the contract's deliverable is a picture. */
+  images?: ImageInput[];
   verdicts: Verdict[];
   clientClaim: string;
   workerClaim: string;
@@ -77,12 +82,15 @@ export interface ImageInput {
   data: string;
 }
 
+/** What the client said the deliverable is; undefined = the AI decides. */
+export type DeliverableHint = 'text' | 'image';
+
 export interface AI {
   readonly name: string;
   /** `images` are reference screenshots/mockups the client attached; multimodal models can look at them. */
-  buildContract(request: string, images?: ImageInput[]): Promise<Contract>;
-  /** Score a rubric deliverable. The deliverable is UNTRUSTED data, never instructions. */
-  judgeRubric(contract: Contract, deliverable: string): Promise<RubricScores>;
+  buildContract(request: string, images?: ImageInput[], hint?: DeliverableHint): Promise<Contract>;
+  /** Score a rubric deliverable. The deliverable is UNTRUSTED data, never instructions. For image contracts `images` ARE the deliverable. */
+  judgeRubric(contract: Contract, deliverable: string, images?: ImageInput[]): Promise<RubricScores>;
   arbitrate(input: DisputeInput): Promise<Ruling>;
   /** The worker agent: produce a deliverable for the contract. `sloppy` simulates a rushed first draft. */
   work(contract: Contract, opts?: WorkOptions): Promise<string>;

@@ -101,3 +101,9 @@
 
 ## 2026-10-21 - Mobile/tablet layout fixed
 - Audited 9 pages/states x 4-6 screen sizes with real measurements; root causes and fix in `docs/06-design-notes.md` (Round 9). 17 new responsive tests; 98 unit + 48 browser tests pass.
+
+## 2026-10-22 - Privacy, client/worker roles, image deliverables
+- **Image jobs paid for unverified work.** The AI built a text rubric, the reviewer cannot open links, so a stock-photo URL passed. Now a contract has a deliverable type; image jobs need an uploaded picture that Gemini looks at; links and missing files are refused (no attempt burned); AI workers cannot "make" pictures; link-only text fails closed.
+- **Privacy.** Anonymous session cookie; jobs, files, events, policy and daily budget belong to the browser that made them; strangers get 404.
+- **Roles.** Client and worker are separate; invite link for a human worker; worker sees two example tests only; owner can "play the worker" for solo demos; both pages follow each other by polling.
+- 116 unit + 51 browser tests pass. Live Gemini image-review check pending (quota).

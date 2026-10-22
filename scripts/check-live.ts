@@ -63,7 +63,7 @@ try {
     await page.waitForTimeout(4000);
   }
   await page.waitForURL((u) => u.toString().startsWith(base), { timeout: 90_000 });
-  await page.getByText('Step 2: the work').waitFor({ timeout: 60_000 });
+  await page.getByText('Step 2: put a worker on it').waitFor({ timeout: 60_000 });
   log('PayPal authorized the hold; the job is funded');
   await snap(page, '5-funded');
 

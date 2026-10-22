@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Footer, Sidebar, Topbar, type PageKey } from './components/Chrome';
 import { Home } from './components/Home';
 import { JobPage } from './components/JobPage';
+import { JoinPage } from './components/JoinPage';
 import { PolicyPage } from './components/PolicyPage';
 import { DataProvider, useApp } from './data';
 import { ThemeProvider } from './theme';
@@ -51,6 +52,7 @@ function Shell() {
   });
 
   const jobId = path.match(/^\/jobs\/([\w-]+)$/)?.[1];
+  const invite = path.match(/^\/join\/([\w-]+)\/(\w+)$/);
   const page: PageKey = jobId ? 'job' : path === '/ledger' ? 'ledger' : path === '/policy' ? 'policy' : 'overview';
   const mode = health?.payments === 'paypal' ? 'PayPal sandbox (test money only)' : 'Built-in PayPal simulator';
 
@@ -68,7 +70,8 @@ function Shell() {
       <div className="main">
         <Topbar page={page} collapsed={sideCollapsed} onToggle={toggleSide} />
         <main className={`body${page === 'overview' ? ' rail' : ''}`}>
-          {jobId ? <JobPage key={jobId} id={jobId} error={query.get('error') ?? undefined} />
+          {invite ? <JoinPage key={invite[1]} id={invite[1]} token={invite[2]} />
+            : jobId ? <JobPage key={jobId} id={jobId} error={query.get('error') ?? undefined} />
             : page === 'ledger' ? <Suspense fallback={<div className="card empty">Loading ledger…</div>}><Ledger /></Suspense>
             : page === 'policy' ? <PolicyPage />
             : <Home />}

@@ -464,6 +464,17 @@ label.fgroup { cursor: default; }
 @keyframes emb-float { 0%, 100% { transform: translateZ(34px) translateY(0); } 50% { transform: translateZ(34px) translateY(-6px); } }
 @media (prefers-reduced-motion: reduce) { .tilt { transition: none; } .emb-spin, .l-shield { animation: none; } }
 
+/* ================= roles, invite link ================= */
+.rolebar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: -4px; }
+.rolechip { display: inline-flex; align-items: center; font-size: 13px; font-weight: 700; color: var(--ink-2); background: var(--sunk); border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; }
+.deliv { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.deliv .filter { padding: 4px 10px; font-size: 12.5px; }
+.share { display: flex; gap: 8px; margin-top: 10px; }
+.share input { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-size: 13px; }
+.choice { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.choice h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.card .thumbs.ref { margin-top: 10px; }
+
 /* =====================================================================================================
    RESPONSIVE - authoritative. This section is deliberately LAST: earlier mobile rules used to lose cascade fights against
    later desktop rules (the phone nav bar kept the desktop sidebar's width). Every desktop sizing rule is reset explicitly here.
@@ -592,4 +603,9 @@ img, svg { max-width: 100%; }
   .jobrow { grid-template-columns: minmax(0, 1fr); }
   .jobrow .amt { grid-column: 1; grid-row: auto; text-align: left; }
   .jobrow .badge { white-space: normal; }
+}
+
+@media (max-width: 640px) {
+  .share { flex-direction: column; }
+  .share .btn { width: 100%; }
 }

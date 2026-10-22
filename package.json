@@ -22,6 +22,7 @@
     "demo": "npm run build && npm start",
     "e2e": "playwright test",
     "live-vision": "tsx scripts/live-vision.ts",
+    "live-image": "tsx scripts/live-image-review.ts",
     "secrets": "tsx scripts/check-secrets.ts",
     "check:live": "tsx scripts/check-live.ts",
     "check:github": "tsx scripts/check-github.ts"

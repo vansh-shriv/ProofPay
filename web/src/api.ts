@@ -1,7 +1,9 @@
-import type { Job, AuditEvent, JobStatus } from '../../server/src/core/store';
+import type { Job, AuditEvent, JobStatus, Role } from '../../server/src/core/store';
 import type { Policy } from '../../server/src/core/policy';
 
-export type { Job, AuditEvent, JobStatus, Policy };
+export type { Job, AuditEvent, JobStatus, Policy, Role };
+/** What the client says the worker will hand in. */
+export type Deliverable = 'auto' | 'text' | 'image';
 export interface JobView { job: Job; events: AuditEvent[] }
 /** An image attached to the job description, already compressed in the browser. */
 export interface UploadImage { name: string; type: string; data: string }
@@ -32,10 +34,11 @@ export const api = {
   jobs: () => call<{ jobs: Job[] }>('GET', '/api/jobs').then((r) => r.jobs),
   events: () => call<{ events: AuditEvent[] }>('GET', '/api/events').then((r) => r.events),
   job: (id: string) => call<JobView>('GET', `/api/jobs/${id}`),
-  createJob: (request: string, amount: string, attachments: UploadImage[] = []) => call<JobView>('POST', '/api/jobs', { request, amount, attachments }),
+  createJob: (request: string, amount: string, attachments: UploadImage[] = [], deliverable: Deliverable = 'auto') => call<JobView>('POST', '/api/jobs', { request, amount, attachments, deliverable }),
+  join: (id: string, how: { token?: string; demo?: boolean }) => call<JobView>('POST', `/api/jobs/${id}/join`, how),
   approve: (id: string) => call<JobView>('POST', `/api/jobs/${id}/approve`),
   autoWork: (id: string, sloppy: boolean) => call<JobView>('POST', `/api/jobs/${id}/auto-work`, { sloppy }),
-  submit: (id: string, deliverable: string) => call<JobView>('POST', `/api/jobs/${id}/submit`, { deliverable }),
+  submit: (id: string, work: { deliverable?: string; image?: UploadImage; workerEmail?: string }) => call<JobView>('POST', `/api/jobs/${id}/submit`, work),
   dispute: (id: string, clientClaim: string, workerClaim: string) => call<JobView>('POST', `/api/jobs/${id}/dispute`, { clientClaim, workerClaim }),
   resolve: (id: string, workerShareBps?: number) => call<JobView>('POST', `/api/jobs/${id}/resolve`, { workerShareBps }),
   retryPayout: (id: string, workerEmail?: string) => call<JobView>('POST', `/api/jobs/${id}/retry-payout`, { workerEmail }),

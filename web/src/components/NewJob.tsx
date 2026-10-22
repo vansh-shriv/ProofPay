@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../api';
+import { api, type Deliverable } from '../api';
 import { MAX_IMAGES, prepareImage, type PreparedImage } from '../images';
 import { Icon, useToast } from '../ui';
 
@@ -17,6 +17,7 @@ export function NewJob({ onCreated }: { onCreated: (id: string) => void }) {
   const [request, setRequest] = useState('');
   const [amount, setAmount] = useState('');
   const [images, setImages] = useState<PreparedImage[]>([]);
+  const [deliverable, setDeliverable] = useState<Deliverable>('auto');
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -82,7 +83,7 @@ export function NewJob({ onCreated }: { onCreated: (id: string) => void }) {
     setBusy(true);
     try {
       rec.current?.stop?.();
-      const { job } = await api.createJob(request, amount, images.map(({ name, type, data }) => ({ name, type, data })));
+      const { job } = await api.createJob(request, amount, images.map(({ name, type, data }) => ({ name, type, data })), deliverable);
       toast(job.status === 'pending_approval' ? 'Contract ready. Policy needs your approval to spend.' : 'Contract written. Fund it to hold the money.');
       onCreated(job.id);
     } catch (err) {
@@ -131,6 +132,12 @@ export function NewJob({ onCreated }: { onCreated: (id: string) => void }) {
             >
               <Icon name="mic" /><span>{listening ? 'Listening…' : 'Dictate'}</span>
             </button>
+            <div className="deliv" role="group" aria-label="What the worker will hand in">
+              <span className="faint">Deliverable</span>
+              {([['auto', 'Auto'], ['text', 'Text / code'], ['image', 'Image']] as [Deliverable, string][]).map(([k, label]) => (
+                <button key={k} type="button" className="filter" aria-pressed={deliverable === k} onClick={() => setDeliverable(k)}>{label}</button>
+              ))}
+            </div>
             <span className="faint count">{request.length}/2000</span>
           </div>
         </div>

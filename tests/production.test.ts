@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { parseConfig } from '../server/src/config';
 import { buildApp } from '../server/src/index';
-import { JOB_REQUEST } from './helpers';
+import { JOB_REQUEST, as } from './helpers';
 
 process.env.NODE_ENV = 'test';
 let current: ReturnType<typeof buildApp> | undefined;
@@ -12,7 +12,7 @@ afterEach(async () => {
 });
 const boot = (rateLimit?: any) => (current = buildApp(parseConfig({ DB_PATH: ':memory:' }), { rateLimit }));
 const post = (ip: string) =>
-  current!.app.inject({ method: 'POST', url: '/api/jobs', headers: { 'x-forwarded-for': ip }, payload: { request: JOB_REQUEST, amount: '10' } });
+  current!.app.inject({ method: 'POST', url: '/api/jobs', headers: { 'x-forwarded-for': ip, ...as() }, payload: { request: JOB_REQUEST, amount: '10' } });
 
 describe('security headers', () => {
   it('every response carries a strict CSP and hardening headers; microphone is allowed only for self', async () => {
@@ -39,9 +39,9 @@ describe('security headers', () => {
   it('uploaded images keep their own stricter policy', async () => {
     boot();
     const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
-    const created = await current!.app.inject({ method: 'POST', url: '/api/jobs', payload: { request: JOB_REQUEST, amount: '10', attachments: [{ name: 'a.png', type: 'image/png', data: PNG.toString('base64') }] } });
+    const created = await current!.app.inject({ method: 'POST', url: '/api/jobs', headers: as(), payload: { request: JOB_REQUEST, amount: '10', attachments: [{ name: 'a.png', type: 'image/png', data: PNG.toString('base64') }] } });
     const id = created.json().job.id;
-    const img = await current!.app.inject({ method: 'GET', url: `/api/jobs/${id}/attachments/0` });
+    const img = await current!.app.inject({ method: 'GET', url: `/api/jobs/${id}/attachments/0`, headers: as() });
     expect(String(img.headers['content-security-policy'])).toContain("default-src 'none'");
   });
 

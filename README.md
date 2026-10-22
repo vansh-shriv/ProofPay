@@ -5,7 +5,9 @@ human or AI agent — built on the PayPal developer platform.
 
 > Built for the **PayPal AI Hackathon**. Verified end to end against the real PayPal sandbox and real Gemini. See `docs/` for the plan, architecture, test report and progress log.
 
-**Live demo:** https://proofpay-kjpo.onrender.com (PayPal sandbox + Gemini) · **Code:** https://github.com/vansh-shriv/ProofPay · MIT
+**Live demo:** https://proofpay-kjpo.onrender.com (PayPal sandbox + Gemini)
+
+**Code:** https://github.com/vansh-shriv/ProofPay · MIT
 
 ## How it works
 1. A client describes a job in plain English. AI turns it into a machine-checkable contract.
@@ -35,6 +37,17 @@ See [docs/SETUP-paypal-gemini.md](docs/SETUP-paypal-gemini.md), then set `PAYMEN
 - **Type it**, **dictate it** (Voice button: the browser's built-in speech recognition, Chrome/Edge/Safari), or **attach up to 3 images** (button, paste or drag-and-drop).
 - Images are shrunk in the browser (max 1280px JPEG), validated on the server (real PNG/JPEG/WebP/GIF by file signature, size caps, no SVG), stored with the job and served with locked-down headers.
 - With Gemini the model actually **looks at the images** when it writes the acceptance criteria, and the worker agent sees them too (verified live with `npm run live-vision`). The offline mock AI ignores images.
+
+## Who can see and do what
+- **Private by default.** Every browser gets an anonymous session cookie (random, HttpOnly, no sign-up). A job belongs to the browser that created it; anyone else gets "not found" for the job, its files, its audit trail and every action. Spending guardrails and the daily budget are per visitor too.
+- **Client and worker are different people.** The client funds, approves and settles. The client shares a private **invite link**; whoever opens it joins as the **worker**, enters their own PayPal email and submits. A worker sees the brief and only two example tests (the verifier still runs the full hidden suite), never the client's PayPal details. Alone? "Play the worker yourself" switches your own browser to the worker side.
+- **Samples** (simulator mode) are public read-only examples; nobody can act on them.
+- Limits, stated honestly: the session is a cookie, so clearing cookies loses your history; there are no passwords or accounts.
+
+## Deliverable types: code, text, or an image
+- **Code** is executed against hidden tests. **Text** is scored by an AI reviewer against a rubric. **An image** must be an **uploaded picture file** that the AI reviewer (Gemini, multimodal) actually looks at and compares with the brief.
+- The system fails closed: a link, a description, or a missing file is never accepted and never paid, and a text job that is only a link fails.
+- Honest limits: AI workers cannot make pictures (the free Gemini tier has no image generation), so image jobs need a person to upload; and the reviewer can judge whether a picture matches the brief, not whether the worker made it themselves.
 
 ## What is real and what is simulated
 | | Default (`.env.example`) | Real mode |
@@ -66,14 +79,15 @@ Use `PAYMENTS_MODE=mock` and `LLM_PROVIDER=mock` for a keyless demo. The free ti
 |---|---|
 | `npm run demo` | build UI + start server |
 | `npm run dev` / `npm run dev:web` | API with reload / Vite dev server (proxies to the API) |
-| `npm test` | 98 unit + integration tests |
-| `npm run e2e` | 48 real-browser tests (incl. 17 phone/tablet layout checks) (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
+| `npm test` | 116 unit + integration tests |
+| `npm run e2e` | 51 real-browser tests (incl. phone/tablet layout checks and two-browser privacy/role tests) (Playwright + Chrome, light and dark), also regenerates `docs/screenshots/` |
 | `npm run check:github` | verifies the public repo meets the submission rules (About box, docs, screenshots, workflow, live site) |
 | `npm run secrets` | pre-push check: none of your `.env` secrets appear in the repo |
 | `npm run doctor` | checks your `.env`, PayPal and Gemini connectivity |
 | `npm run smoke` | sends a $1 sandbox payout |
 | `npm run live-ai` | exercises the real Gemini prompts |
 | `npm run live-vision` | proves real Gemini reads an attached image |
+| `npm run live-image` | proves real Gemini accepts a matching delivered picture and rejects a wrong or blank one |
 | `npm run check:live` | drives the deployed site end to end (hold, verify, capture, payout SUCCESS) |
 | `npm run e2e:live` | full real flow with a real PayPal approval click |
 

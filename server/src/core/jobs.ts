@@ -1,9 +1,10 @@
-import { randomUUID } from 'node:crypto';
-import type { AI, Ruling } from '../ai/types';
+import { randomBytes, randomUUID } from 'node:crypto';
+import type { AI, DeliverableHint, Ruling } from '../ai/types';
 import { toImageInputs, type ValidImage } from '../attachments';
 import { splitByBps, toCents, type Money } from '../money';
 import type { PaymentProvider } from '../payments/types';
 import { verify } from '../verify';
+import { looksLikePictureJob } from '../ai/picture';
 import { evaluateNewJob, evaluateRuling } from './policy';
 import type { AuditEvent, Job, Store } from './store';
 
@@ -19,6 +20,8 @@ function payoutHint(reason: string): string {
   return '';
 }
 export class PolicyError extends Error {}
+/** The caller is not allowed to do this (wrong role). Mapped to HTTP 403. */
+export class ForbiddenError extends Error {}
 
 export interface JobServiceDeps {
   store: Store;
@@ -40,7 +43,7 @@ export class JobService {
 
   // ---------- create & fund ----------
 
-  async createJob(input: { request: string; amount: Money; clientId?: string; workerEmail?: string; attachments?: ValidImage[] }): Promise<Job> {
+  async createJob(input: { request: string; amount: Money; clientId?: string; workerEmail?: string; attachments?: ValidImage[]; deliverable?: DeliverableHint }): Promise<Job> {
     const { store, ai } = this.d;
     const amountCents = toCents(input.amount.value);
     if (amountCents < 100) throw new PolicyError('Minimum job amount is 1.00');
@@ -48,10 +51,20 @@ export class JobService {
 
     const id = randomUUID();
     const images = input.attachments ?? [];
-    const contract = await ai.buildContract(input.request, toImageInputs(images));
+    const hint = input.deliverable;
+    const contract = await ai.buildContract(input.request, toImageInputs(images), hint);
+    // Safety net: if the AI missed that a picture is wanted, or built something that contradicts what the client chose, fix or refuse.
+    if (hint === 'image' || (hint === undefined && contract.deliverableType === 'text' && contract.kind === 'rubric' && looksLikePictureJob(input.request))) {
+      if (contract.kind !== 'rubric') throw new PolicyError('Could not build an image contract from that description. Rephrase the request.');
+      contract.deliverableType = 'image';
+    }
+    if (hint === 'text' && contract.deliverableType === 'image') contract.deliverableType = 'text';
+    if (contract.deliverableType === 'image' && !/upload/i.test(contract.deliverableSpec)) {
+      contract.deliverableSpec = `An image file (PNG, JPEG, WebP or GIF) uploaded by the worker. A link or a description is not accepted. ${contract.deliverableSpec}`.slice(0, 1000);
+    }
     const now = new Date().toISOString();
     const job: Job = {
-      id, createdAt: now, updatedAt: now, request: input.request, clientId: input.clientId ?? 'demo-client',
+      id, createdAt: now, updatedAt: now, request: input.request, clientId: input.clientId ?? 'demo-client', workerToken: randomBytes(12).toString('hex'),
       workerEmail, amount: input.amount, contract, status: 'awaiting_funds', attempts: 0, verdicts: [],
       attachments: images.map((im, idx) => ({ idx, name: im.name, type: im.mime, size: im.bytes.length })),
     };
@@ -60,7 +73,7 @@ export class JobService {
     store.addEvent(id, 'job_created', 'client', { request: input.request, amount: input.amount, images: images.length });
     store.addEvent(id, 'contract_built', 'system', { ai: ai.name, kind: contract.kind, title: contract.title, maxAttempts: contract.maxAttempts });
 
-    const decision = evaluateNewJob(store.getPolicy(), amountCents, store.spentTodayCents() - amountCents);
+    const decision = evaluateNewJob(store.getPolicy(job.clientId), amountCents, store.spentTodayCents(job.clientId) - amountCents);
     store.addEvent(id, 'policy_checked', 'policy', decision);
     if (decision.decision === 'deny') {
       job.status = 'rejected';
@@ -121,19 +134,33 @@ export class JobService {
 
   // ---------- work & verification ----------
 
-  async submit(id: string, deliverable: string): Promise<Job> {
+  async submit(id: string, deliverable: string, extra: { image?: ValidImage; workerEmail?: string } = {}): Promise<Job> {
     return this.locked(id, async () => {
       const job = this.must(id);
       this.expect(job, 'funded');
       this.assertHoldAlive(job);
       if (job.attempts >= job.contract.maxAttempts) throw new StateError('No attempts left on this job');
-      if (!deliverable.trim()) throw new StateError('Empty submission');
+      const isImage = job.contract.deliverableType === 'image';
+      // Rejected before anything is verified or any attempt is spent.
+      if (isImage && !extra.image) throw new StateError('This job needs an uploaded image file. A link or a description is not accepted.');
+      if (!isImage && extra.image) throw new StateError('This job takes written work or code, not an image.');
+      if (!isImage && !deliverable.trim()) throw new StateError('Empty submission');
+      const text = isImage ? `[image file] ${extra.image!.name} (${extra.image!.mime}, ${Math.max(1, Math.round(extra.image!.bytes.length / 1024))} KB)` : deliverable;
 
-      this.d.store.addEvent(id, 'work_submitted', 'worker', { attempt: job.attempts + 1, chars: deliverable.length });
-      const verdict = await verify(this.d.ai, job.contract, deliverable);
+      const email = extra.workerEmail?.trim();
+      if (email && email.toLowerCase() !== job.workerEmail.toLowerCase()) {
+        this.d.store.addEvent(id, 'worker_email_changed', 'worker', { from: job.workerEmail, to: email });
+        job.workerEmail = email;
+      }
+      this.d.store.addEvent(id, 'work_submitted', 'worker', { attempt: job.attempts + 1, chars: text.length, ...(isImage ? { image: extra.image!.name } : {}) });
+      const verdict = await verify(this.d.ai, job.contract, text, isImage ? toImageInputs([extra.image!]) : []);
       job.attempts += 1;
       job.verdicts.push(verdict);
-      job.lastDeliverable = deliverable;
+      job.lastDeliverable = text;
+      if (isImage) {
+        this.d.store.saveDelivery(id, job.attempts, extra.image!);
+        job.deliveries = [...(job.deliveries ?? []), { attempt: job.attempts, name: extra.image!.name, type: extra.image!.mime, size: extra.image!.bytes.length }];
+      }
       this.d.store.saveJob(job);
       this.d.store.addEvent(id, 'verdict', 'verifier', { attempt: job.attempts, passed: verdict.passed, score: verdict.score, feedback: verdict.feedback, checks: verdict.checks });
 
@@ -150,6 +177,7 @@ export class JobService {
   async autoWork(id: string, sloppy = false): Promise<Job> {
     const job = this.must(id);
     this.expect(job, 'funded');
+    if (job.contract.deliverableType === 'image') throw new StateError('An AI worker cannot produce image files. Invite a human worker, or upload the picture yourself as the worker.');
     const feedback = job.verdicts.at(-1)?.feedback;
     const deliverable = await this.d.ai.work(job.contract, { sloppy, feedback, images: this.d.store.getAttachmentImages(id) });
     this.d.store.addEvent(id, 'worker_agent_drafted', 'worker', { sloppy, usedFeedback: !!feedback, chars: deliverable.length });
@@ -169,12 +197,15 @@ export class JobService {
   }
 
   private async runDispute(job: Job, clientClaim: string, workerClaim: string): Promise<Job> {
+    const last = job.deliveries?.at(-1);
+    const shown = last ? this.d.store.getDelivery(job.id, last.attempt) : undefined;
     const ruling = await this.d.ai.arbitrate({
       contract: job.contract, deliverable: job.lastDeliverable ?? '(nothing submitted)',
+      images: shown ? toImageInputs([{ name: shown.name, mime: shown.mime, bytes: shown.data }]) : undefined,
       verdicts: job.verdicts, clientClaim, workerClaim,
     });
     this.d.store.addEvent(job.id, 'ruling_proposed', 'arbiter', ruling);
-    const gate = evaluateRuling(this.d.store.getPolicy(), toCents(job.amount.value), ruling.confidence);
+    const gate = evaluateRuling(this.d.store.getPolicy(job.clientId), toCents(job.amount.value), ruling.confidence);
     this.d.store.addEvent(job.id, 'policy_checked', 'policy', gate);
     if (gate.decision !== 'allow') {
       job.status = 'escalated';

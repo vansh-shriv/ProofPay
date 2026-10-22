@@ -10,7 +10,7 @@ import { Store } from '../server/src/core/store';
 import { buildApp } from '../server/src/index';
 import { money } from '../server/src/money';
 import { MockPaymentProvider } from '../server/src/payments/mock';
-import { JOB_REQUEST } from './helpers';
+import { JOB_REQUEST, as } from './helpers';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.from('JFIF\0', 'latin1'), Buffer.alloc(20)]);
@@ -99,7 +99,7 @@ describe('HTTP: upload, store, and serve images safely', () => {
   afterEach(async () => current?.app.close());
   const boot = () => (current = buildApp(parseConfig({ DB_PATH: ':memory:' })));
   const create = (attachments: unknown) =>
-    current!.app.inject({ method: 'POST', url: '/api/jobs', payload: { request: JOB_REQUEST, amount: '50', attachments } as any });
+    current!.app.inject({ method: 'POST', url: '/api/jobs', headers: as(), payload: { request: JOB_REQUEST, amount: '50', attachments } as any });
 
   it('accepts a job with an image and serves it back with locked-down headers', async () => {
     process.env.NODE_ENV = 'test';
@@ -109,7 +109,7 @@ describe('HTTP: upload, store, and serve images safely', () => {
     const { job } = res.json();
     expect(job.attachments).toHaveLength(1);
 
-    const img = await current!.app.inject({ method: 'GET', url: `/api/jobs/${job.id}/attachments/0` });
+    const img = await current!.app.inject({ method: 'GET', url: `/api/jobs/${job.id}/attachments/0`, headers: as() });
     expect(img.statusCode).toBe(200);
     expect(img.headers['content-type']).toBe('image/png');
     expect(img.headers['x-content-type-options']).toBe('nosniff');
@@ -121,7 +121,7 @@ describe('HTTP: upload, store, and serve images safely', () => {
     boot();
     const { job } = (await create([up(PNG, 'image/png')])).json();
     for (const idx of ['1', '-1', 'abc', '99999999999']) {
-      expect((await current!.app.inject({ method: 'GET', url: `/api/jobs/${job.id}/attachments/${idx}` })).statusCode, idx).toBe(404);
+      expect((await current!.app.inject({ method: 'GET', url: `/api/jobs/${job.id}/attachments/${idx}`, headers: as() })).statusCode, idx).toBe(404);
     }
     expect((await create([up(Buffer.from('<script>alert(1)</script>'), 'image/png')])).statusCode).toBe(400);
     expect((await create([up(Buffer.from('<svg/>'), 'image/svg+xml')])).statusCode).toBe(400);

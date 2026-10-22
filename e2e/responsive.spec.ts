@@ -31,23 +31,31 @@ async function fund(req: APIRequestContext, job: any) {
   await req.get(`/api/jobs/${job.id}/fund-return?token=${job.orderId}`);
 }
 
-let pages: [string, string][] = [];
-test.beforeAll(async ({ browser }) => {
-  const ctx = await browser.newContext({ baseURL: 'http://localhost:3100' });
-  const req = ctx.request;
+type PageSpec = [name: string, url: string, prepare?: (page: Page) => Promise<void>];
+const FOX = 'Generate a logo of a red fox for my bakery, flat style, on a white background.';
+
+/** Jobs are private to a browser session, so every test builds its own set in ITS browser (otherwise it would only see "Job not found"). */
+async function buildPages(req: APIRequestContext): Promise<PageSpec[]> {
+  const worker = (job: any) => req.post(`/api/jobs/${job.id}/join`, { data: { demo: true } });
   const awaiting = await create(req, '45');
   const approval = await create(req, '400');
-  const failed = await create(req, '30'); await fund(req, failed); await req.post(`/api/jobs/${failed.id}/submit`, { data: { deliverable: BAD } });
+  const failed = await create(req, '30'); await fund(req, failed); await worker(failed); await req.post(`/api/jobs/${failed.id}/submit`, { data: { deliverable: BAD } });
   const paid = await create(req, '25'); await fund(req, paid); await req.post(`/api/jobs/${paid.id}/auto-work`, { data: {} });
-  const settled = await create(req, '60'); await fund(req, settled); for (let i = 0; i < 3; i++) await req.post(`/api/jobs/${settled.id}/submit`, { data: { deliverable: BAD } });
+  const settled = await create(req, '60'); await fund(req, settled); await worker(settled); for (let i = 0; i < 3; i++) await req.post(`/api/jobs/${settled.id}/submit`, { data: { deliverable: BAD } });
   const denied = await create(req, '20', { workerEmail: 'worker@self.test' }); await fund(req, denied); await req.post(`/api/jobs/${denied.id}/auto-work`, { data: {} }); await req.get(`/api/jobs/${denied.id}`);
-  pages = [
+  const open = await create(req, '35'); await fund(req, open); await worker(open);
+  const picture = (await (await req.post('/api/jobs', { data: { request: FOX, amount: '40' } })).json()).job; await fund(req, picture); await worker(picture);
+  const asWorker = async (page: Page) => { await page.getByRole('button', { name: 'Worker', exact: true }).click(); };
+  return [
     ['overview', '/#/'], ['ledger', '/#/ledger'], ['policy', '/#/policy'],
     ['job awaiting funds', `/#/jobs/${awaiting.id}`], ['job needs approval', `/#/jobs/${approval.id}`], ['job failed attempt', `/#/jobs/${failed.id}`],
     ['job paid', `/#/jobs/${paid.id}`], ['job settled', `/#/jobs/${settled.id}`], ['job payout failed', `/#/jobs/${denied.id}`],
+    ['job funded, client view with invite link', `/#/jobs/${open.id}`],
+    ['job funded, worker view', `/#/jobs/${open.id}`, asWorker],
+    ['image job, client view', `/#/jobs/${picture.id}`],
+    ['image job, worker upload view', `/#/jobs/${picture.id}`, asWorker],
   ];
-  await ctx.close();
-});
+}
 
 async function open(browser: Browser, vp: (typeof VIEWPORTS)[number]) {
   const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, isMobile: vp.mobile, hasTouch: vp.mobile, deviceScaleFactor: 2, baseURL: 'http://localhost:3100' });
@@ -83,9 +91,12 @@ for (const vp of VIEWPORTS) {
   test(`${vp.name}: every page and job state fits the screen`, async ({ browser }) => {
     test.setTimeout(120_000);
     const { ctx, page } = await open(browser, vp);
-    for (const [name, url] of pages) {
+    await page.goto('/#/');
+    const pages = await buildPages(ctx.request);
+    for (const [name, url, prepare] of pages) {
       await page.goto(url);
       await page.waitForTimeout(name === 'ledger' ? 1200 : 450);
+      await prepare?.(page);
       const m = await measure(page);
       expect(m.docOverflow, `${vp.name} / ${name}: page is wider than the screen`).toBeLessThanOrEqual(1);
       expect(m.offenders, `${vp.name} / ${name}: elements out of bounds`).toEqual([]);
@@ -178,6 +189,7 @@ test.describe('phone usability', () => {
 
   test('search is reachable on phones (overview and ledger) and filters', async ({ browser }) => {
     const { ctx, page } = await open(browser, VIEWPORTS[1]);
+    await page.request.post('/api/jobs', { data: { request: SUM, amount: '12' } }); // the list only shows your own jobs
     await page.goto('/#/');
     const search = page.getByLabel('Search jobs');
     await expect(search).toBeVisible();
@@ -206,9 +218,11 @@ test.describe('phone usability', () => {
     const { ctx, page } = await open(browser, VIEWPORTS[1]);
     await page.goto('/#/');
     await page.getByRole('button', { name: 'Switch to dark mode' }).click();
-    for (const [, url] of pages.slice(0, 4)) {
+    const pages = await buildPages(ctx.request);
+    for (const [, url, prepare] of [...pages.slice(0, 4), ...pages.slice(9)]) {
       await page.goto(url);
       await page.waitForTimeout(400);
+      await prepare?.(page);
       const m = await measure(page);
       expect(m.docOverflow).toBeLessThanOrEqual(1);
       expect(m.offenders).toEqual([]);

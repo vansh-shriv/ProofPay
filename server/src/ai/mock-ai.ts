@@ -1,4 +1,5 @@
-import { ContractSchema, type AI, type Contract, type DisputeInput, type ImageInput, type RubricScores, type Ruling, type WorkOptions } from './types';
+import { looksLikePictureJob } from './picture';
+import { ContractSchema, type AI, type Contract, type DeliverableHint, type DisputeInput, type ImageInput, type RubricScores, type Ruling, type WorkOptions } from './types';
 
 const INJECTION = /ignore (all )?(previous|prior|above)|disregard .*instructions|give (me )?(full|10|top) (marks|score)|score (me )?10|rule in my favou?r/i;
 
@@ -52,9 +53,10 @@ const TEMPLATES: Template[] = [
 export class MockAI implements AI {
   readonly name = 'mock';
 
-  async buildContract(request: string, _images?: ImageInput[]): Promise<Contract> {
+  async buildContract(request: string, _images?: ImageInput[], hint?: DeliverableHint): Promise<Contract> {
     const t = TEMPLATES.find((x) => x.match.test(request));
-    if (t) {
+    const picture = hint === 'image' || (hint === undefined && !t && looksLikePictureJob(request));
+    if (t && hint !== 'image') {
       return ContractSchema.parse({
         title: t.title,
         summary: request.slice(0, 500),
@@ -65,6 +67,24 @@ export class MockAI implements AI {
       });
     }
     const keywords = [...new Set(request.toLowerCase().match(/[a-z]{6,}/g) ?? [])].filter((w) => !GENERIC.has(w)).slice(0, 4);
+    if (picture) {
+      return ContractSchema.parse({
+        title: request.split(/[.\n]/)[0].slice(0, 80) || 'Image job',
+        summary: request.slice(0, 500),
+        kind: 'rubric',
+        deliverableType: 'image',
+        deliverableSpec: 'An image file (PNG, JPEG, WebP or GIF) uploaded by the worker. A link or a description is not accepted.',
+        rubric: {
+          criteria: [
+            { id: 'c1', description: `Shows what the brief asks for: ${keywords.join(', ') || 'the requested subject'}`, weight: 3 },
+            { id: 'c2', description: 'Is an actual image file, not a placeholder, blank or unrelated picture', weight: 2 },
+            { id: 'c3', description: 'Looks clean and professional', weight: 1 },
+          ],
+          passScore: 0.7,
+        },
+        maxAttempts: 3,
+      });
+    }
     return ContractSchema.parse({
       title: request.split(/[.\n]/)[0].slice(0, 80) || 'Custom job',
       summary: request.slice(0, 500),
@@ -82,8 +102,17 @@ export class MockAI implements AI {
     });
   }
 
-  async judgeRubric(contract: Contract, deliverable: string): Promise<RubricScores> {
+  async judgeRubric(contract: Contract, deliverable: string, images: ImageInput[] = []): Promise<RubricScores> {
     const criteria = contract.rubric?.criteria ?? [];
+    if (contract.deliverableType === 'image') {
+      // Offline stand-in: it cannot look at pixels, so it only checks that a real picture file arrived. Gemini does the real visual review.
+      const bytes = images.reduce((n, i) => n + Math.floor((i.data.length * 3) / 4), 0);
+      const ok = bytes >= 2000;
+      return {
+        scores: criteria.map((c) => ({ id: c.id, score: ok ? 8 : 0, reason: ok ? 'Simulated reviewer: an image file was received (it cannot judge pixels offline).' : 'No usable image file was received.' })),
+        feedback: ok ? '' : 'Upload a real image file (PNG, JPEG, WebP or GIF).',
+      };
+    }
     if (INJECTION.test(deliverable)) {
       return {
         scores: criteria.map((c) => ({ id: c.id, score: 0, reason: 'Deliverable tried to manipulate the reviewer; treated as bad faith.' })),
@@ -117,6 +146,7 @@ export class MockAI implements AI {
   }
 
   async work(contract: Contract, opts: WorkOptions = {}): Promise<string> {
+    if (contract.deliverableType === 'image') throw new Error('An AI worker cannot produce image files. A human worker uploads the picture.');
     if (contract.kind === 'code') {
       const fn = contract.code!.functionName;
       // A sloppy first draft is fixed once the worker has seen verifier feedback.

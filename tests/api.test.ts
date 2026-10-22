@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { parseConfig } from '../server/src/config';
 import { buildApp } from '../server/src/index';
-import { GOOD_SUM_EVENS, JOB_REQUEST } from './helpers';
+import { GOOD_SUM_EVENS, JOB_REQUEST, as } from './helpers';
 
 process.env.NODE_ENV = 'test';
 let current: ReturnType<typeof buildApp> | undefined;
@@ -9,7 +9,8 @@ const boot = (rateLimit?: { max: number; windowMs: number }) =>
   (current = buildApp(parseConfig({ DB_PATH: ':memory:' }), { rateLimit }));
 afterEach(async () => current?.app.close());
 
-const post = (url: string, payload?: unknown) => current!.app.inject({ method: 'POST', url, payload: payload as any });
+const post = (url: string, payload?: unknown, sid?: string) => current!.app.inject({ method: 'POST', url, payload: payload as any, headers: as(sid) });
+const get = (url: string, sid?: string) => current!.app.inject({ method: 'GET', url, headers: as(sid) });
 
 describe('HTTP API: the whole product through the network layer', () => {
   it('create -> mock PayPal approval -> redirect -> funded -> submit -> paid', async () => {
@@ -26,12 +27,13 @@ describe('HTTP API: the whole product through the network layer', () => {
     // the simulator page submits a real HTML form (urlencoded), not JSON
     const approved = await app.inject({ method: 'POST', url: `/mock-paypal/approve?token=${job.orderId}`, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: '' });
     expect(approved.statusCode).toBe(303);
-    const back = await app.inject({ method: 'GET', url: approved.headers.location as string });
+    const back = await app.inject({ method: 'GET', url: approved.headers.location as string, headers: as() });
     expect(back.statusCode).toBe(302);
     expect(back.headers.location).toBe(`/#/jobs/${job.id}`);
 
-    expect((await app.inject({ method: 'GET', url: `/api/jobs/${job.id}` })).json().job.status).toBe('funded');
+    expect((await get(`/api/jobs/${job.id}`)).json().job.status).toBe('funded');
 
+    expect((await post(`/api/jobs/${job.id}/join`, { demo: true })).statusCode).toBe(200); // the owner plays the worker
     const done = await post(`/api/jobs/${job.id}/submit`, { deliverable: GOOD_SUM_EVENS });
     expect(done.statusCode).toBe(200);
     const body = done.json();
@@ -50,8 +52,9 @@ describe('HTTP API: the whole product through the network layer', () => {
 
   it('maps errors: 404 unknown job, 409 wrong state, 403 policy', async () => {
     boot();
-    expect((await current!.app.inject({ method: 'GET', url: '/api/jobs/nope' })).statusCode).toBe(404);
+    expect((await get('/api/jobs/nope')).statusCode).toBe(404);
     const { job } = (await post('/api/jobs', { request: JOB_REQUEST, amount: '50' })).json();
+    await post(`/api/jobs/${job.id}/join`, { demo: true });
     expect((await post(`/api/jobs/${job.id}/submit`, { deliverable: GOOD_SUM_EVENS })).statusCode).toBe(409);
     const denied = await post('/api/jobs', { request: JOB_REQUEST, amount: '99999' });
     expect(denied.statusCode).toBe(403);
@@ -68,11 +71,11 @@ describe('HTTP API: the whole product through the network layer', () => {
 
   it('GET/PUT /api/policy round-trips and validates', async () => {
     boot();
-    const cur = (await current!.app.inject({ method: 'GET', url: '/api/policy' })).json().policy;
-    const put = await current!.app.inject({ method: 'PUT', url: '/api/policy', payload: { ...cur, hardMaxCents: 5000 } });
+    const cur = (await get('/api/policy')).json().policy;
+    const put = await current!.app.inject({ method: 'PUT', url: '/api/policy', payload: { ...cur, hardMaxCents: 5000 }, headers: as() });
     expect(put.json().policy.hardMaxCents).toBe(5000);
     expect((await post('/api/jobs', { request: JOB_REQUEST, amount: '60' })).statusCode).toBe(403);
-    const bad = await current!.app.inject({ method: 'PUT', url: '/api/policy', payload: { hardMaxCents: -1 } });
+    const bad = await current!.app.inject({ method: 'PUT', url: '/api/policy', payload: { hardMaxCents: -1 }, headers: as() });
     expect(bad.statusCode).toBe(400);
   });
 
@@ -86,7 +89,7 @@ describe('HTTP API: the whole product through the network layer', () => {
   it('fund-return with a foreign token does not fund the job', async () => {
     boot();
     const { job } = (await post('/api/jobs', { request: JOB_REQUEST, amount: '50' })).json();
-    const r = await current!.app.inject({ method: 'GET', url: `/api/jobs/${job.id}/fund-return?token=FOREIGN` });
+    const r = await get(`/api/jobs/${job.id}/fund-return?token=FOREIGN`);
     expect(r.statusCode).toBe(302);
     expect(r.headers.location).toMatch(/error=/);
     expect(current!.jobs.get(job.id).status).toBe('awaiting_funds');

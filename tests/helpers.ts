@@ -24,3 +24,8 @@ export async function fundedJob(env: ReturnType<typeof makeEnv>, amount = '50.00
   env.mock.approve(job.orderId!);
   return env.jobs.confirmFunding(job.id, job.orderId);
 }
+
+/** Test sessions: the server accepts any well-formed id as a visitor's cookie. */
+export const SID = 'a'.repeat(32);
+export const OTHER_SID = 'b'.repeat(32);
+export const as = (sid = SID) => ({ cookie: `pp_sid=${sid}` });

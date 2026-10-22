@@ -31,11 +31,12 @@ export function Stepper({ job }: { job: Job }) {
 // ---------------- contract ----------------
 export function ContractCard({ job }: { job: Job }) {
   const c = job.contract;
+  const hidden = job.viewer?.hiddenTests ?? 0;
   return (
     <section className="card" aria-label="Contract">
       <header>
         <h2>Contract</h2>
-        <Badge tone="info" plain>{c.kind === 'code' ? 'Verified by running tests' : 'Verified by AI review'}</Badge>
+        <Badge tone="info" plain>{c.kind === 'code' ? 'Verified by running tests' : c.deliverableType === 'image' ? 'AI looks at the picture' : 'Verified by AI review'}</Badge>
       </header>
       <p className="muted">{c.summary}</p>
       <p className="small" style={{ marginTop: 10 }}><b>Deliverable:</b> {c.deliverableSpec}</p>
@@ -56,7 +57,7 @@ export function ContractCard({ job }: { job: Job }) {
       )}
       {c.kind === 'code' && c.code && (
         <details className="more" style={{ marginTop: 10 }}>
-          <summary>{c.code.cases.length} acceptance tests for <code>{c.code.functionName}()</code></summary>
+          <summary>{hidden > 0 ? `${c.code.cases.length} example tests for ` : `${c.code.cases.length} acceptance tests for `}<code>{c.code.functionName}()</code>{hidden > 0 ? ` (${hidden} more are hidden)` : ''}</summary>
           <div style={{ display: 'grid', gap: 4, marginTop: 8 }}>
             {c.code.cases.map((t, i) => (
               <div key={i} className="small mono">
@@ -99,11 +100,20 @@ export function Attempts({ job }: { job: Job }) {
                   <div>{c.name}<div className="d">{c.detail}</div></div>
                 </div>
               ))}
+              {job.deliveries?.some((x) => x.attempt === i + 1) && (
+                <ul className="thumbs ref" aria-label={`Image submitted in attempt ${i + 1}`}>
+                  <li>
+                    <a href={`/api/jobs/${job.id}/deliveries/${i + 1}`} target="_blank" rel="noreferrer" title="Open the submitted image">
+                      <img src={`/api/jobs/${job.id}/deliveries/${i + 1}`} alt={`Submitted in attempt ${i + 1}`} loading="lazy" />
+                    </a>
+                  </li>
+                </ul>
+              )}
               {!v.passed && <div className="notice warn small" style={{ marginTop: 6 }}><b>Feedback to worker:</b> {v.feedback}</div>}
             </div>
           </details>
         ))}
-        {job.lastDeliverable && (
+        {job.lastDeliverable && !job.deliveries?.length && (
           <details className="more">
             <summary>Latest submission</summary>
             <pre className="pre">{job.lastDeliverable}</pre>
